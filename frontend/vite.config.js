@@ -9,7 +9,7 @@ export default defineConfig({
     allowedHosts: ['frontend', 'localhost', 'nginx'],
     proxy: {
       '/api': {
-        target: 'http://app:9000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
     },

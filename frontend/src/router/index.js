@@ -76,12 +76,27 @@ router.beforeEach(async (to, from, next) => {
 
       const { data } = await axios.get('/tenant/onboarding')
 
-      if (data.data && !data.data.completed && !data.data.onboarding_completed) {
+      // Si la respuesta no tiene la estructura esperada, asumir que necesita onboarding
+      if (!data.data) {
+        next('/onboarding')
+        return
+      }
+
+      if (!data.data.completed && !data.data.onboarding_completed) {
         next('/onboarding')
         return
       }
     } catch (error) {
       console.error('Error checking onboarding:', error)
+      // En caso de error (401, 404, network), redirigir a login
+      if (error.response?.status === 401 || error.code === 'ERR_NETWORK') {
+        localStorage.removeItem('token')
+        next('/login')
+        return
+      }
+      // Para otros errores, permitir continuar pero loguear
+      next()
+      return
     }
   }
 
