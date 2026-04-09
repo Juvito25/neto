@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    allowedHosts: ['frontend', 'localhost', 'nginx'],
     proxy: {
       '/api': {
         target: 'http://app:9000',

@@ -59,7 +59,7 @@ const metrics = ref({
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/tenant')
+    const { data } = await axios.get('/tenant')
     tenant.value = data
     whatsappStatus.value = data.whatsapp_status
     trialDaysRemaining.value = data.days_remaining_in_trial || 0

@@ -6,6 +6,7 @@
         <router-link to="/">Dashboard</router-link>
         <router-link to="/conversations">Conversaciones</router-link>
         <router-link to="/inventory">Inventario</router-link>
+        <router-link to="/catalog">Catálogo</router-link>
         <router-link to="/settings">Configuración</router-link>
       </nav>
     </aside>

@@ -17,7 +17,7 @@ class WebhookController extends Controller
         $instanceName = $request->header('X-Evolution-Instance');
         
         if (!$instanceName) {
-            return response()->json(['error' => 'Instance not provided'], 400);
+            return response()->json(['message' => 'Instance not provided'], 400);
         }
 
         $instance = WhatsappInstance::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
@@ -25,7 +25,7 @@ class WebhookController extends Controller
             ->first();
 
         if (!$instance) {
-            return response()->json(['error' => 'Instance not found'], 404);
+            return response()->json(['message' => 'Instance not found'], 404);
         }
 
         $tenant = $instance->tenant;

@@ -9,8 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('contacts', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
+            $table->uuid('id')->primary();
+            $table->uuid('tenant_id');
+            $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
             $table->string('phone');
             $table->string('name')->nullable();
             $table->timestamps();

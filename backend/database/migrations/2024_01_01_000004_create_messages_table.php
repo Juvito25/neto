@@ -9,9 +9,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('messages', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
-            $table->foreignId('contact_id')->constrained()->onDelete('cascade');
+            $table->uuid('id')->primary();
+            $table->uuid('tenant_id');
+            $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
+            $table->uuid('contact_id');
+            $table->foreign('contact_id')->references('id')->on('contacts')->onDelete('cascade');
             $table->enum('direction', ['in', 'out']);
             $table->text('body');
             $table->string('media_url')->nullable();

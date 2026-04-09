@@ -75,7 +75,7 @@ const form = ref({ name: '', description: '', price: 0, stock: null, active: tru
 
 const loadProducts = async () => {
   try {
-    const { data } = await axios.get('/api/products')
+    const { data } = await axios.get('/products')
     products.value = data.data
   } catch (e) {
     console.error(e)
@@ -91,9 +91,9 @@ const editProduct = (product) => {
 const saveProduct = async () => {
   try {
     if (editingProduct.value) {
-      await axios.put(`/api/products/${editingProduct.value.id}`, form.value)
+      await axios.put(`/products/${editingProduct.value.id}`, form.value)
     } else {
-      await axios.post('/api/products', form.value)
+      await axios.post('/products', form.value)
     }
     closeModal()
     loadProducts()

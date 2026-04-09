@@ -53,7 +53,7 @@ const filteredContacts = computed(() => {
 const selectContact = async (contact) => {
   selectedContact.value = contact
   try {
-    const { data } = await axios.get(`/api/conversations/${contact.id}/messages`)
+    const { data } = await axios.get(`/conversations/${contact.id}/messages`)
     messages.value = data.data
   } catch (e) {
     console.error(e)
@@ -62,7 +62,7 @@ const selectContact = async (contact) => {
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/conversations')
+    const { data } = await axios.get('/conversations')
     contacts.value = data.data
   } catch (e) {
     console.error(e)

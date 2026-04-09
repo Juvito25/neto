@@ -1,0 +1,84 @@
+# CONFIGURAR GITHUB MCP EN CLAUDE CODE
+
+## Opción 1: Con token manual (rápido)
+
+```bash
+claude mcp add github --transport http https://api.githubcopilot.com/mcp/ \
+  --header "Authorization: Bearer TU_GITHUB_TOKEN"
+```
+
+**Para obtener el token:**
+1. Ve a: https://github.com/settings/tokens
+2. Crea un token clásico con permisos: `repo`, `read:user`
+3. Copia el token y reemplaza `TU_GITHUB_TOKEN`
+
+---
+
+## Opción 2: Con OAuth (automático)
+
+```bash
+claude mcp add github --transport http https://api.githubcopilot.com/mcp/
+```
+
+Luego en Claude Code ejecutá:
+```
+/mcp
+```
+
+Y seguí el enlace de autenticación para iniciar sesión con GitHub.
+
+---
+
+## Verificar que está funcionando
+
+```bash
+claude mcp list
+```
+
+Debería mostrar `github` en la lista.
+
+---
+
+## En Claude Code, probá:
+
+```
+¿Qué PRs tengo abiertos?
+```
+
+```
+Crea un issue nuevo: "Bug en login"
+```
+
+```
+Revisa el PR #123 y haz un summary
+```
+
+---
+
+## Más comandos útiles
+
+```bash
+# Ver detalle de un servidor
+claude mcp get github
+
+# Eliminar servidor
+claude mcp remove github
+```
+
+---
+
+## Si tenés errores comunes
+
+**"Connection closed"** → El token puede haber expirado. Volvé a crear uno.
+
+**"Unauthorized"** → Verificá que el token tenga los permisos `repo` y `read:user`.
+
+**"Too many requests"** → El servidor MCP tiene rate limit. Esperá un poco y reintentá.
+
+---
+
+## Notas
+
+- El alcance por defecto es `local` (solo vos en este proyecto)
+- Para compartirlo con el equipo, usá: `--scope project`
+- El servidor necesita tu token personal o OAuth para acceder a tus repos privados

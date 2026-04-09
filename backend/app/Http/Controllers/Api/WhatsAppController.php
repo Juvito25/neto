@@ -100,7 +100,7 @@ class WhatsAppController extends Controller
                     ]);
                 }
             } catch (\Exception $e) {
-                return response()->json(['error' => 'Error al crear instancia: ' . $e->getMessage()], 500);
+                return response()->json(['message' => 'Error al crear instancia: ' . $e->getMessage()], 500);
             }
         }
 
@@ -144,7 +144,7 @@ class WhatsAppController extends Controller
         $instance = WhatsappInstance::where('tenant_id', $tenant->id)->first();
 
         if (!$instance) {
-            return response()->json(['error' => 'No hay instancia'], 404);
+            return response()->json(['message' => 'No hay instancia'], 404);
         }
 
         if ($instance->status === 'connected') {
@@ -172,7 +172,7 @@ class WhatsAppController extends Controller
                 ]);
             }
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error al obtener QR: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Error al obtener QR: ' . $e->getMessage()], 500);
         }
 
         return response()->json(['status' => $instance->status]);

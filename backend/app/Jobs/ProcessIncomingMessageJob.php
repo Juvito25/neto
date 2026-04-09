@@ -6,6 +6,8 @@ use App\Models\Tenant;
 use App\Models\Contact;
 use App\Models\Message;
 use App\Models\WhatsappInstance;
+use App\Models\Catalog;
+use App\Models\CatalogItem;
 use App\Actions\SearchProductAction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -82,7 +84,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
         if ($isProductQuery) {
             $products = $searchProduct($tenantId, $messageBody);
             if ($products->isNotEmpty()) {
-                $productsContext = "\n\nProductos disponibles:\n";
+                $productsContext .= "\n\nProductos disponibles:\n";
                 foreach ($products as $product) {
                     $productsContext .= "- {$product->name}: \${$product->price}";
                     if ($product->stock !== null) {
@@ -96,10 +98,12 @@ class ProcessIncomingMessageJob implements ShouldQueue
             }
         }
 
-        $systemPrompt = $this->buildSystemPrompt($tenant, $productsContext);
+        $catalogContext = $this->buildCatalogContext($tenantId);
+
+        $systemPrompt = $this->buildSystemPrompt($tenant, $productsContext, $catalogContext);
         $conversationHistory = $this->buildConversationHistory($tenantId, $contact->id);
 
-        $response = $this->callClaude($systemPrompt, $conversationHistory, $messageBody);
+        $response = $this->callGroq($systemPrompt, $conversationHistory, $messageBody);
 
         if ($response) {
             Message::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)->create([
@@ -119,12 +123,56 @@ class ProcessIncomingMessageJob implements ShouldQueue
     private function looksLikeProductQuery(string $message): bool
     {
         $productKeywords = ['precio', 'tienen', 'cuánto', 'producto', 'comprar', 'stock', 'disponible', 'tenés', 'busco', 'necesito'];
+        $serviceKeywords = ['servicio', 'clase', 'consulta', 'turno', 'cita', 'programar', 'reservar', 'cuánto cuesta', 'presupuesto'];
         $messageLower = mb_strtolower($message);
         
-        return collect($productKeywords)->contains(fn($keyword) => mb_strpos($messageLower, $keyword) !== false);
+        return collect($productKeywords)->contains(fn($keyword) => mb_strpos($messageLower, $keyword) !== false)
+            || collect($serviceKeywords)->contains(fn($keyword) => mb_strpos($messageLower, $keyword) !== false);
     }
 
-    private function buildSystemPrompt(Tenant $tenant, string $productsContext = ''): string
+    private function buildCatalogContext(string $tenantId): string
+    {
+        $catalog = Catalog::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$catalog) {
+            return '';
+        }
+
+        $items = CatalogItem::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
+            ->where('catalog_id', $catalog->id)
+            ->limit(50)
+            ->get();
+
+        if ($items->isEmpty()) {
+            return '';
+        }
+
+        $context = "\n\n📦 CATÁLOGO DE " . strtoupper($catalog->type) . ":\n";
+
+        foreach ($items as $item) {
+            $context .= "• {$item->name}";
+            if ($item->price) {
+                $context .= " - \${$item->price}";
+            }
+            if ($item->quantity !== null) {
+                $context .= " (Stock: {$item->quantity})";
+            }
+            if ($item->duration_minutes) {
+                $context .= " - {$item->duration_minutes} min";
+            }
+            if ($item->description) {
+                $context .= "\n  {$item->description}";
+            }
+            $context .= "\n";
+        }
+
+        return $context;
+    }
+
+    private function buildSystemPrompt(Tenant $tenant, string $productsContext = '', string $catalogContext = ''): string
     {
         $prompt = "Vos sos el asistente virtual de *{$tenant->business_name}*.";
         
@@ -160,6 +208,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
 
         $prompt .= "\n\nRespondé de manera amable, concise y útil.";
         $prompt .= $productsContext;
+        $prompt .= $catalogContext;
 
         return $prompt;
     }
@@ -183,12 +232,12 @@ class ProcessIncomingMessageJob implements ShouldQueue
         })->toArray();
     }
 
-    private function callClaude(string $systemPrompt, array $conversationHistory, string $currentMessage): ?array
+    private function callGroq(string $systemPrompt, array $conversationHistory, string $currentMessage): ?array
     {
-        $apiKey = config('services.anthropic.key');
+        $apiKey = config('services.groq.key');
         
         if (!$apiKey) {
-            Log::error('ProcessIncomingMessageJob: ANTHROPIC_API_KEY not configured');
+            Log::error('ProcessIncomingMessageJob: GROQ_API_KEY not configured');
             return null;
         }
 
@@ -197,19 +246,22 @@ class ProcessIncomingMessageJob implements ShouldQueue
         ]);
 
         try {
+            // Groq es OpenAI-compatible
             $response = Http::withHeaders([
-                'x-api-key' => $apiKey,
-                'anthropic-version' => '2023-06-01',
+                'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type' => 'application/json',
-            ])->post('https://api.anthropic.com/v1/messages', [
-                'model' => 'claude-haiku-4-5',
+            ])->post('https://api.groq.com/openai/v1/chat/completions', [
+                'model' => 'llama-3.1-70b-versatile',
                 'max_tokens' => 500,
-                'system' => $systemPrompt,
-                'messages' => $messages,
+                'temperature' => 0.7,
+                'messages' => array_merge(
+                    [['role' => 'system', 'content' => $systemPrompt]],
+                    $messages
+                ),
             ]);
 
             if ($response->failed()) {
-                Log::error('ProcessIncomingMessageJob: Claude API failed', [
+                Log::error('ProcessIncomingMessageJob: Groq API failed', [
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
@@ -219,11 +271,11 @@ class ProcessIncomingMessageJob implements ShouldQueue
             $data = $response->json();
             
             return [
-                'content' => $data['content'][0]['text'] ?? 'Disculpa, tuve un problema al procesar tu mensaje.',
-                'tokens' => $data['usage']['output_tokens'] ?? 0,
+                'content' => $data['choices'][0]['message']['content'] ?? 'Disculpa, tuve un problema al procesar tu mensaje.',
+                'tokens' => $data['usage']['completion_tokens'] ?? 0,
             ];
         } catch (\Exception $e) {
-            Log::error('ProcessIncomingMessageJob: Exception calling Claude', [
+            Log::error('ProcessIncomingMessageJob: Exception calling Groq', [
                 'error' => $e->getMessage(),
             ]);
             return null;

@@ -90,7 +90,7 @@ const progressPercent = computed(() => {
 
 const loadData = async () => {
   try {
-    const { data } = await axios.get('/api/tenant')
+    const { data } = await axios.get('/tenant')
     tenant.value = data
     tenantForm.value = {
       business_name: data.business_name || '',
@@ -104,7 +104,7 @@ const loadData = async () => {
 
 const loadWhatsAppStatus = async () => {
   try {
-    const { data } = await axios.get('/api/whatsapp/status')
+    const { data } = await axios.get('/whatsapp/status')
     whatsappStatus.value = data.status
   } catch (e) {
     console.error(e)
@@ -113,7 +113,7 @@ const loadWhatsAppStatus = async () => {
 
 const saveTenant = async () => {
   try {
-    await axios.put('/api/tenant', tenantForm.value)
+    await axios.put('/tenant', tenantForm.value)
     alert('Guardado!')
   } catch (e) {
     console.error(e)
@@ -123,8 +123,8 @@ const saveTenant = async () => {
 const connectWhatsApp = async () => {
   try {
     whatsappStatus.value = 'connecting'
-    await axios.post('/api/whatsapp/connect')
-    const { data } = await axios.get('/api/whatsapp/qr')
+    await axios.post('/whatsapp/connect')
+    const { data } = await axios.get('/whatsapp/qr')
     qrCode.value = data.qr_code
     setTimeout(loadWhatsAppStatus, 3000)
   } catch (e) {
@@ -135,7 +135,7 @@ const connectWhatsApp = async () => {
 const disconnectWhatsApp = async () => {
   if (!confirm('¿Desconectar WhatsApp?')) return
   try {
-    await axios.post('/api/whatsapp/disconnect')
+    await axios.post('/whatsapp/disconnect')
     whatsappStatus.value = 'disconnected'
   } catch (e) {
     console.error(e)

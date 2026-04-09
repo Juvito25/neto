@@ -41,6 +41,11 @@ RUN addgroup -g 1000 -S appgroup && \
 
 WORKDIR /var/www
 
+# Ensure cache and storage directories exist with correct permissions
+RUN mkdir -p /var/www/bootstrap/cache /var/www/storage/framework/{cache,sessions,views} && \
+    chown -R appuser:appgroup /var/www/bootstrap/cache /var/www/storage && \
+    chmod -R 775 /var/www/bootstrap/cache /var/www/storage
+
 RUN chown -R appuser:appgroup /var/www
 
 USER appuser

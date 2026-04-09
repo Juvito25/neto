@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\TenantController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\WhatsAppController;
+use App\Http\Controllers\Api\CatalogController;
 
 Route::post('/webhooks/whatsapp', [WebhookController::class, 'whatsapp']);
 
@@ -19,7 +20,9 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tenant', [TenantController::class, 'show']);
     Route::put('/tenant', [TenantController::class, 'update']);
-    Route::get('/tenant/onboarding-status', [TenantController::class, 'onboardingStatus']);
+    Route::get('/tenant/onboarding', [TenantController::class, 'onboardingStatus']);
+    Route::put('/tenant/onboarding', [TenantController::class, 'updateOnboarding']);
+    Route::get('/plans', [TenantController::class, 'plans']);
 
     Route::get('/products', [ProductController::class, 'index']);
     Route::post('/products', [ProductController::class, 'store']);
@@ -35,4 +38,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/whatsapp/connect', [WhatsAppController::class, 'connect']);
     Route::post('/whatsapp/disconnect', [WhatsAppController::class, 'disconnect']);
     Route::get('/whatsapp/qr', [WhatsAppController::class, 'qr']);
+
+    Route::get('/catalog', [CatalogController::class, 'getCurrent']);
+    Route::get('/catalog/template', [CatalogController::class, 'getTemplate']);
+    Route::post('/catalog/upload', [CatalogController::class, 'upload']);
+    Route::get('/catalog/{catalogId}/items', [CatalogController::class, 'getItems']);
+    Route::delete('/catalog/{catalogId}', [CatalogController::class, 'destroy']);
 });

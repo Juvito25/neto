@@ -7,6 +7,9 @@ return [
     'openai' => [
         'key' => env('OPENAI_API_KEY'),
     ],
+    'groq' => [
+        'key' => env('GROQ_API_KEY'),
+    ],
     'evolution' => [
         'url' => env('EVOLUTION_API_URL', 'http://evolution:8080'),
         'key' => env('EVOLUTION_API_KEY'),

@@ -5,6 +5,7 @@ return [
         'guard' => 'web',
         'passwords' => 'users',
     ],
+
     'guards' => [
         'web' => [
             'driver' => 'session',
@@ -15,9 +16,14 @@ return [
             'provider' => 'users',
         ],
     ],
+
     'providers' => [
-        'users' => App\Models\User::class,
+        'users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\User::class,
+        ],
     ],
+
     'passwords' => [
         'users' => [
             'provider' => 'users',
@@ -26,5 +32,6 @@ return [
             'throttle' => 60,
         ],
     ],
+
     'password_timeout' => 10800,
 ];

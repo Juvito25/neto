@@ -1,0 +1,191 @@
+# PROMPT COMPLETO - Continuar desarrollo NETO
+
+---
+
+## 📋 CONTEXTO DEL PROYECTO
+
+**Proyecto:** NETO - SaaS B2B argentino para conectar chatbot IA a WhatsApp  
+**Stack:** Laravel 11 (backend) + Vue.js 3 (frontend) + MySQL (multi-tenant)  
+**Ubicación:** `/home/juan/Proyectos/Neto/`
+
+---
+
+## ✅ LO IMPLEMENTADO HASTA AHORA
+
+### 1. Autenticación
+- Login/Registro funcionando con Laravel Sanctum tokens
+- Multi-tenancy verificado (cada usuario ve solo sus datos)
+- Modelo User con `tenant_id` y relación con Tenant
+
+### 2. Dashboard
+- Muestra datos del tenant (business_name, plan, WhatsApp status)
+- Onboarding status con pasos completados
+
+### 3. Catálogo de Productos/Servicios (IMPLEMENTADO)
+- **Backend:**
+  - Migraciones: `catalogs`, `catalog_items`
+  - Modelos: `Catalog.php`, `CatalogItem.php`
+  - Controller: `CatalogController.php`
+  - Endpoints API:
+    - `GET /api/catalog` - obtener catálogo actual
+    - `GET /api/catalog/template?type=products|services|both` - descargar plantilla
+    - `POST /api/catalog/upload` - subir archivo CSV/JSON
+    - `GET /api/catalog/{id}/items` - obtener items
+    - `DELETE /api/catalog/{id}` - eliminar catálogo
+  - Integración con chatbot en `ProcessIncomingMessageJob.php`
+    - keywords para productos: precio, tienen, cuánto, stock, etc.
+    - keywords para servicios: servicio, clase, turno, consultar, etc.
+
+- **Frontend:**
+  - `CatalogView.vue` - wizard completo con 3 pasos:
+    1. Selector de tipo (Productos/Servicios/Ambos)
+    2. Upload de archivo (con validación 5MB)
+    3. Vista del catálogo con items
+  - Ruta `/catalog` agregada al router
+  - Link "Catálogo" en el sidebar
+
+### 4. API Responses
+- Formato estándar: `{ "success": true/false, "message": "...", "data": {...} }`
+- Manejo de errores para API (`/api/*` retorna JSON 401)
+
+---
+
+## 🎯 TAREA: LÍMITES POR PLAN + WIZARD DE CONFIGURACIÓN
+
+### 1. Límites por Plan
+
+Agregar sistema de planes con límites de catálogo:
+
+| Plan | Límite de items | Notas |
+|------|-----------------|-------|
+| Starter | 500 | Plan gratuito por defecto |
+| Pro | 2,000 | Plan pago |
+| Enterprise | 10,000 | Plan empresarial |
+
+**Implementar:**
+1. Nueva tabla `plans`:
+   ```php
+   // Tabla: plans
+   - id (uuid)
+   - name (string): 'starter', 'pro', 'enterprise'
+   - max_catalog_items (integer)
+   - max_conversations_per_month (integer)
+   - price (decimal)
+   - features (json)
+   - created_at, updated_at
+   ```
+
+2. Agregar a tabla `tenants`:
+   ```php
+   - plan_id (uuid, FK a plans, nullable)
+   - onboarding_step (string): 'business_info', 'whatsapp', 'catalog', 'chatbot', 'complete'
+   - onboarding_completed (boolean, default false)
+   ```
+
+3. Validación en `CatalogController::upload()`:
+   ```php
+   $tenant = $request->user()->tenant;
+   $maxItems = $tenant->plan->max_catalog_items ?? 500;
+   
+   if (count($items) > $maxItems) {
+       return response()->json([
+           'success' => false,
+           'message' => "Tu plan permite máximo {$maxItems} items. Upgrade tu plan para subir más productos."
+       ], 422);
+   }
+   ```
+
+4. Nuevo endpoint: `GET /api/plans` - listar planes disponibles
+
+### 2. Wizard de Configuración (Onboarding)
+
+Crear un wizard de 5 pasos para nuevos usuarios:
+
+```
+Paso 1: Información del Negocio
+  - Nombre del negocio (ya existe)
+  - Rubro (selección: retail, servicios, gastronomía, etc.)
+  - Descripción (textarea)
+  - Horarios de atención (json: {monday: {open, close}, ...})
+  - FAQs (array de {question, answer})
+
+Paso 2: Conectar WhatsApp
+  - Mostrar QR para escanear
+  - Estado de conexión
+  - Botón para reconectar
+
+Paso 3: Configurar Catálogo
+  - Elegir tipo (productos/servicios/ambos)
+  - Subir archivo (ya implementado en CatalogView)
+  - Ver items subidos
+
+Paso 4: Personalizar Chatbot
+  - Custom prompt (instrucciones adicionales)
+  - Saludo inicial (mensaje de bienvenida)
+  - Palabras clave para respuestas
+
+Paso 5: Revisar y Activar
+  - Resumen de configuración
+  - Términos y condiciones
+  - Botón "Activar Chatbot"
+```
+
+**Estados del onboarding:**
+- `business_info` - Completo
+- `whatsapp` - Conectado
+- `catalog` - Configurado
+- `chatbot` - Personalizado
+- `complete` - Activado
+
+**Endpoints necesarios:**
+- `GET /api/tenant/onboarding` - obtener estado actual
+- `PUT /api/tenant/onboarding` - guardar progreso (cada paso)
+- `PUT /api/tenant/onboarding/complete` - marcar como completado
+
+---
+
+## 📁 ARCHIVOS CLAVE
+
+### Backend
+- `/home/juan/Proyectos/Neto/backend/app/Models/Tenant.php` - agregar plan y onboarding
+- `/home/juan/Proyectos/Neto/backend/app/Http/Controllers/Api/TenantController.php` - nuevos endpoints
+- `/home/juan/Proyectos/Neto/backend/app/Http/Controllers/Api/CatalogController.php` - validar límites
+- `/home/juan/Proyectos/Neto/backend/app/Http/Controllers/Api/PlanController.php` - crear nuevo
+- `/home/juan/Proyectos/Neto/backend/routes/api.php` - agregar rutas
+- `/home/juan/Proyectos/Neto/backend/database/migrations/` - nuevas migraciones
+
+### Frontend
+- `/home/juan/Proyectos/Neto/frontend/src/views/OnboardingWizard.vue` - crear wizard
+- `/home/juan/Proyectos/Neto/frontend/src/views/DashboardView.vue` - integrar wizard
+- `/home/juan/Proyectos/Neto/frontend/src/router/index.js` - rutas del wizard
+
+---
+
+## 🧪 TESTS A VERIFICAR
+
+1. Subir 600 items en plan Starter → Error "máximo 500 items"
+2. Subir 400 items en plan Starter → Éxito
+3. Wizard no permite avanzar sin completar paso anterior
+4. Al completar wizard, onboarding_completed = true
+5. Plan incorrecto muestra opción de upgrade
+
+---
+
+## 🚀 CÓMO CONTINUAR
+
+1. Crear migración para tabla `plans` y agregar campos a `tenants`
+2. Crear modelo `Plan.php` con relaciones
+3. Actualizar `TenantController` con endpoints de onboarding
+4. Agregar validación de límites en `CatalogController`
+5. Crear componente Vue `OnboardingWizard.vue`
+6. Integrar wizard en el flujo de nuevo usuario
+
+---
+
+## 📝 NOTAS IMPORTANTES
+
+- Mantener formato JSON consistente: `{success, message, data}`
+- Siempre filtrar por `tenant_id` en queries
+- Usar `auth:sanctum` middleware para rutas protegidas
+- El wizard debe ser intuitivo y mostrar progreso claramente
+- Error messages deben ser claros y accionables

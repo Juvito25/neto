@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WhatsappInstance;
+use App\Models\Plan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -25,8 +26,9 @@ class AuthController extends Controller
         ]);
 
         return DB::transaction(function () use ($request) {
-            $trialDays = (int) config('app.trial_days', 14);
-            $plan = 'pro';
+            // Obtener plan por defecto (starter)
+            $defaultPlan = Plan::where('name', 'starter')->first();
+            $trialDays = $defaultPlan ? $defaultPlan->trial_days : 14;
 
             $tenant = Tenant::create([
                 'name' => $request->name,
@@ -34,19 +36,21 @@ class AuthController extends Controller
                 'password' => Hash::make($request->password),
                 'business_name' => $request->business_name,
                 'rubro' => $request->rubro,
-                'plan' => $plan,
+                'plan_id' => $defaultPlan?->id,
+                'onboarding_step' => 'business',
+                'onboarding_completed' => false,
                 'trial_ends_at' => now()->addDays($trialDays),
-                'messages_limit' => (int) config('app.plan_pro_limit', 2000),
             ]);
 
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
+                'tenant_id' => $tenant->id,
             ]);
 
+            // Crear instancia de WhatsApp
             $instanceName = 'neto_' . $tenant->id . '_' . time();
-
             $evolutionUrl = config('services.evolution.url');
             $evolutionKey = config('services.evolution.key');
 
@@ -89,7 +93,7 @@ class AuthController extends Controller
 
             return response()->json([
                 'user' => $user,
-                'tenant' => $tenant,
+                'tenant' => $tenant->load('plan'),
                 'token' => $token,
             ], 201);
         });
@@ -105,7 +109,7 @@ class AuthController extends Controller
         $tenant = Tenant::where('email', $request->email)->first();
 
         if (!$tenant || !Hash::check($request->password, $tenant->password)) {
-            return response()->json(['error' => 'Credenciales inválidas'], 401);
+            return response()->json(['message' => 'Credenciales inválidas'], 401);
         }
 
         $user = User::where('email', $request->email)->first();
@@ -115,6 +119,7 @@ class AuthController extends Controller
                 'name' => $tenant->name,
                 'email' => $tenant->email,
                 'password' => $tenant->password,
+                'tenant_id' => $tenant->id,
             ]);
         }
 

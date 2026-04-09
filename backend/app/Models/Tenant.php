@@ -5,12 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
 use App\Models\Scopes\TenantScope;
 
-class Tenant extends Model
+class Tenant extends Model implements Authenticatable
 {
-    use HasUuids;
-
+    use HasUuids, AuthenticatableTrait;
     protected $fillable = [
         'name',
         'email',
@@ -21,10 +23,11 @@ class Tenant extends Model
         'business_hours',
         'faqs',
         'custom_prompt',
-        'plan',
+        'plan_id',
+        'onboarding_step',
+        'onboarding_completed',
         'trial_ends_at',
         'messages_used',
-        'messages_limit',
         'whatsapp_instance_id',
         'whatsapp_status',
         'stripe_customer_id',
@@ -39,7 +42,7 @@ class Tenant extends Model
         'faqs' => 'array',
         'trial_ends_at' => 'datetime',
         'messages_used' => 'integer',
-        'messages_limit' => 'integer',
+        'onboarding_completed' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -67,9 +70,18 @@ class Tenant extends Model
         return $this->hasMany(WhatsappInstance::class);
     }
 
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
     public function isActive(): bool
     {
-        return $this->plan !== 'starter' || 
+        $plan = $this->plan;
+        if (!$plan) {
+            return $this->trial_ends_at && $this->trial_ends_at->isFuture();
+        }
+        return $plan->name !== 'starter' ||
                ($this->trial_ends_at && $this->trial_ends_at->isFuture());
     }
 
@@ -80,7 +92,21 @@ class Tenant extends Model
 
     public function hasReachedLimit(): bool
     {
-        return $this->messages_used >= $this->messages_limit && $this->plan !== 'business';
+        $plan = $this->plan;
+        if (!$plan) {
+            return true;
+        }
+        return $this->messages_used >= $plan->messages_limit;
+    }
+
+    public function getCatalogItemsLimit(): int
+    {
+        return $this->plan?->catalog_items_limit ?? 500;
+    }
+
+    public function getMessagesLimit(): int
+    {
+        return $this->plan?->messages_limit ?? 1000;
     }
 
     public function daysRemainingInTrial(): int
