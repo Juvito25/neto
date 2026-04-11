@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\WhatsappInstance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class WhatsAppController extends Controller
 {
@@ -31,21 +32,29 @@ class WhatsAppController extends Controller
             ])->get("{$evolutionUrl}/instance/connectionState/{$instance->instance_name}");
 
             if ($response->successful()) {
-                $state = $response->json('data.state');
+                $data = $response->json();
+                $state = $data['instance']['state'] ?? $data['state'] ?? null;
+                
                 $statusMap = [
                     'open' => 'connected',
                     'close' => 'disconnected',
+                    'connecting' => 'connecting',
+                    'ready' => 'connecting',
                 ];
                 
                 $currentStatus = $statusMap[$state] ?? $instance->status;
                 
                 if ($currentStatus !== $instance->status) {
-                    $instance->update(['status' => $currentStatus]);
+                    $instance->update([
+                        'status' => $currentStatus,
+                        'connected_at' => $currentStatus === 'connected' ? now() : null,
+                    ]);
                     $tenant->update(['whatsapp_status' => $currentStatus]);
                 }
 
                 return response()->json([
                     'status' => $currentStatus,
+                    'api_state' => $state,
                     'instance_name' => $instance->instance_name,
                     'connected_at' => $instance->connected_at,
                 ]);
@@ -75,29 +84,43 @@ class WhatsAppController extends Controller
             $evolutionKey = config('services.evolution.key');
 
             try {
+                // Evolution API v2 format
                 $response = Http::withHeaders([
                     'apikey' => $evolutionKey,
                     'Content-Type' => 'application/json',
                 ])->post("{$evolutionUrl}/instance/create", [
                     'instanceName' => $instanceName,
-                    'qrCode' => true,
+                    'qrcode' => true,
+                    'integration' => 'WHATSAPP-BAILEYS',
                 ]);
 
-                if ($response->successful()) {
+                $responseData = $response->json();
+                
+                if ($response->successful() || isset($responseData['instance'])) {
                     $instance = WhatsappInstance::create([
                         'tenant_id' => $tenant->id,
                         'instance_name' => $instanceName,
                         'status' => 'connecting',
                     ]);
 
+                    // Configure webhook automatically via nginx (Evolution can't reach PHP-FPM directly)
                     Http::withHeaders([
                         'apikey' => $evolutionKey,
                         'Content-Type' => 'application/json',
                     ])->post("{$evolutionUrl}/webhook/set/{$instanceName}", [
-                        'url' => config('app.url') . '/api/webhooks/whatsapp',
-                        'webhookByEvents' => true,
-                        'webhookEvents' => ['messages.upsert', 'connection.update', 'qrcode'],
+                        'webhook' => [
+                            'enabled' => true,
+                            'url' => 'http://nginx/api/webhooks/whatsapp',
+                            'webhookByEvents' => false,
+                            'webhookBase64' => false,
+                            'events' => ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+                        ],
                     ]);
+                } else {
+                    return response()->json([
+                        'message' => 'Error al crear instancia',
+                        'details' => $responseData
+                    ], 500);
                 }
             } catch (\Exception $e) {
                 return response()->json(['message' => 'Error al crear instancia: ' . $e->getMessage()], 500);
@@ -105,8 +128,8 @@ class WhatsAppController extends Controller
         }
 
         return response()->json([
-            'status' => $instance->status,
-            'instance_name' => $instance->instance_name,
+            'status' => $instance?->status ?? 'unknown',
+            'instance_name' => $instance?->instance_name,
         ]);
     }
 
@@ -141,14 +164,102 @@ class WhatsAppController extends Controller
     {
         $tenant = $request->user()->tenant;
         
-        $instance = WhatsappInstance::where('tenant_id', $tenant->id)->first();
+        $instance = WhatsappInstance::where('tenant_id', $tenant->id)->orderBy('created_at', 'desc')->first();
 
         if (!$instance) {
-            return response()->json(['message' => 'No hay instancia'], 404);
+            return response()->json(['message' => 'No hay instancia. Primero conectá WhatsApp desde Settings.'], 404);
+        }
+
+        $evolutionUrl = config('services.evolution.url');
+        $evolutionKey = config('services.evolution.key');
+
+        // Check connection state
+        try {
+            $stateResponse = Http::withHeaders([
+                'apikey' => $evolutionKey,
+            ])->get("{$evolutionUrl}/instance/connectionState/{$instance->instance_name}");
+            
+            if ($stateResponse->successful()) {
+                $stateData = $stateResponse->json();
+                $state = $stateData['instance']['state'] ?? null;
+                
+                if ($state === 'open') {
+                    $instance->update(['status' => 'connected', 'connected_at' => now()]);
+                    $tenant->update(['whatsapp_status' => 'connected']);
+                    
+                    return response()->json([
+                        'status' => 'connected',
+                        'message' => 'WhatsApp ya está conectado',
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('WhatsAppController: Failed to check connection state', ['error' => $e->getMessage()]);
         }
 
         if ($instance->status === 'connected') {
             return response()->json(['status' => 'connected', 'message' => 'Ya conectado']);
+        }
+
+        // Get QR code - Evolution API v2
+        try {
+            $response = Http::withHeaders([
+                'apikey' => $evolutionKey,
+            ])->get("{$evolutionUrl}/instance/connect/{$instance->instance_name}");
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                // Get QR code - Evolution API v2 response parsing
+                $qrCode = $data['base64'] ?? 
+                          $data['code'] ?? 
+                          $data['qrcode']['base64'] ?? 
+                          $data['qrcode']['code'] ?? 
+                          $data['data']['base64'] ?? 
+                          $data['data']['qrcode']['base64'] ?? 
+                          null;
+                
+                if ($qrCode) {
+                    // Add data:image prefix if needed
+                    if (!str_starts_with($qrCode, 'data:')) {
+                        $qrCode = 'data:image/png;base64,' . $qrCode;
+                    }
+
+                    $instance->update([
+                        'qr_code' => $qrCode,
+                        'status' => 'connecting',
+                    ]);
+
+                    return response()->json([
+                        'qr_code' => $qrCode,
+                        'status' => 'connecting',
+                    ]);
+                }
+
+                Log::info('WhatsAppController: QR response success but no QR found', ['data' => $data]);
+
+                return response()->json([
+                    'status' => 'connecting',
+                    'message' => 'Esperando escaneo...',
+                    'debug_info' => 'No QR in response, check logs',
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('WhatsApp QR Error', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Error al obtener QR: ' . $e->getMessage()], 500);
+        }
+
+        return response()->json(['status' => $instance->status]);
+    }
+
+    public function checkMessages(Request $request)
+    {
+        $tenant = $request->user()->tenant;
+        
+        $instance = WhatsappInstance::where('tenant_id', $tenant->id)->first();
+
+        if (!$instance || $instance->status !== 'connected') {
+            return response()->json(['new_messages' => 0]);
         }
 
         $evolutionUrl = config('services.evolution.url');
@@ -157,24 +268,21 @@ class WhatsAppController extends Controller
         try {
             $response = Http::withHeaders([
                 'apikey' => $evolutionKey,
-            ])->get("{$evolutionUrl}/instance/connect/{$instance->instance_name}");
+            ])->get("{$evolutionUrl}/chat/list/{$instance->instance_name}?count=1");
 
             if ($response->successful()) {
-                $data = $response->json('data');
+                $data = $response->json();
+                $chats = $data['chats'] ?? [];
                 
-                $instance->update([
-                    'qr_code' => $data['qrcode']['code'] ?? null,
-                ]);
-
                 return response()->json([
-                    'qr_code' => $instance->qr_code,
-                    'status' => 'connecting',
+                    'new_messages' => count($chats),
+                    'status' => $instance->status,
                 ]);
             }
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error al obtener QR: ' . $e->getMessage()], 500);
+            Log::warning('WhatsAppController: Failed to check messages', ['error' => $e->getMessage()]);
         }
 
-        return response()->json(['status' => $instance->status]);
+        return response()->json(['new_messages' => 0, 'status' => $instance->status]);
     }
 }

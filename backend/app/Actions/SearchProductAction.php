@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 
 class SearchProductAction
 {
-    public function __invoke(int $tenantId, string $query, float $threshold = 0.75): \Illuminate\Database\Eloquent\Collection
+    public function __invoke(string $tenantId, string $query, float $threshold = 0.75): \Illuminate\Database\Eloquent\Collection
     {
         $embedding = $this->generateEmbedding($query);
 

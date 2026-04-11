@@ -116,7 +116,13 @@
 
           <div class="qr-section">
             <div v-if="qrCode" class="qr-container">
-              <img :src="qrCode" alt="Código QR" class="qr-image" />
+              <div v-if="qrCode.startsWith('data:image')" class="qr-image-wrapper">
+                <img :src="qrCode" alt="Código QR" class="qr-image" />
+              </div>
+              <div v-else class="qr-code-text">
+                <p class="qr-text-label">Escaneá este código con WhatsApp:</p>
+                <div class="qr-text-code">{{ qrCode }}</div>
+              </div>
               <p class="qr-instructions">
                 1. Abrí WhatsApp en tu teléfono<br/>
                 2. Tocá los tres puntos (Android) o Configuración (iPhone)<br/>
@@ -316,6 +322,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import QRCode from 'qrcode'
 
 const router = useRouter()
 
@@ -408,14 +415,47 @@ async function loadOnboardingStatus() {
 
 async function loadQRCode() {
   try {
-    const { data } = await axios.get('/whatsapp/qr', { responseType: 'blob' })
-    const url = URL.createObjectURL(data)
-    qrCode.value = url
+    // Primero verificar si hay instancia y su estado
+    const statusResponse = await axios.get('/whatsapp/status')
+    const currentStatus = statusResponse.data.status
+    
+    if (currentStatus === 'not_configured' || currentStatus === 'disconnected') {
+      // Crear instancia primero
+      await axios.post('/whatsapp/connect')
+    }
+    
+    // Ahora obtener el QR
+    const { data } = await axios.get('/whatsapp/qr')
+    
+    if (data.qr_code) {
+      // Puede ser base64 (data:image/png;base64,...) o un código de texto
+      if (data.qr_code.startsWith('data:')) {
+        qrCode.value = data.qr_code // Ya es una imagen base64
+      } else {
+        // Generar imagen QR desde el código de texto
+        try {
+          qrCode.value = await QRCode.toDataURL(data.qr_code, {
+            width: 280,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          })
+        } catch (e) {
+          console.error('Error generating QR:', e)
+          qrCode.value = data.qr_code // Fallback to text
+        }
+      }
+    } else if (data.status === 'connecting') {
+      qrCode.value = null // Se muestra el spinner
+    }
 
     // Polling para verificar estado
     setInterval(checkWhatsAppStatus, 5000)
   } catch (error) {
     console.error('Error loading QR code:', error)
+    qrCode.value = null
   }
 }
 
@@ -787,12 +827,41 @@ async function activateAccount() {
   text-align: center;
 }
 
+.qr-image-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
 .qr-image {
   width: 256px;
   height: 256px;
   border: 2px solid #e2e8f0;
   border-radius: 12px;
+}
+
+.qr-code-text {
+  background: #f8fafc;
+  border: 2px dashed #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
   margin-bottom: 1rem;
+}
+
+.qr-text-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.75rem;
+}
+
+.qr-text-code {
+  font-family: monospace;
+  font-size: 0.75rem;
+  word-break: break-all;
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 
 .qr-instructions {

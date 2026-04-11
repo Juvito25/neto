@@ -14,6 +14,8 @@ class TenantController extends Controller
     public function show(Request $request)
     {
         $tenant = $request->user()->tenant->load('plan');
+        $tenant->days_remaining_in_trial = $tenant->daysRemainingInTrial();
+        $tenant->makeVisible('days_remaining_in_trial');
         return response()->json($tenant);
     }
 

@@ -213,7 +213,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
         return $prompt;
     }
 
-    private function buildConversationHistory(int $tenantId, int $contactId): array
+    private function buildConversationHistory(string $tenantId, string $contactId): array
     {
         $messages = Message::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
             ->where('tenant_id', $tenantId)
@@ -251,7 +251,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
                 'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type' => 'application/json',
             ])->post('https://api.groq.com/openai/v1/chat/completions', [
-                'model' => 'llama-3.1-70b-versatile',
+                'model' => 'llama-3.1-8b-instant',
                 'max_tokens' => 500,
                 'temperature' => 0.7,
                 'messages' => array_merge(
@@ -284,6 +284,11 @@ class ProcessIncomingMessageJob implements ShouldQueue
 
     private function sendMessage(Tenant $tenant, string $phone, string $message): void
     {
+        if (empty(trim($message))) {
+            Log::warning('ProcessIncomingMessageJob: Skipping empty message');
+            return;
+        }
+
         $instance = WhatsappInstance::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
             ->where('tenant_id', $tenant->id)
             ->first();
@@ -298,13 +303,25 @@ class ProcessIncomingMessageJob implements ShouldQueue
         $evolutionUrl = config('services.evolution.url');
         $evolutionKey = config('services.evolution.key');
 
+        $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+        
+        // Si no tiene el código de país (54) y código whatsapp (9), lo agregamos como default
+        if (strlen($cleanPhone) <= 10) {
+            $cleanPhone = '549' . $cleanPhone;
+        }
+
         try {
-            Http::withHeaders([
+            $response = Http::withHeaders([
                 'apikey' => $evolutionKey,
                 'Content-Type' => 'application/json',
             ])->post("{$evolutionUrl}/message/sendText/{$instance->instance_name}", [
-                'number' => $phone,
+                'number' => $cleanPhone,
                 'text' => $message,
+            ]);
+
+            Log::info('Evolution sendText response', [
+                'status' => $response->status(),
+                'body' => $response->body(),
             ]);
         } catch (\Exception $e) {
             Log::error('ProcessIncomingMessageJob: Failed to send message', [

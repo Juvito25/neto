@@ -12,6 +12,11 @@ const routes = [
     component: () => import('../views/AuthView.vue'),
   },
   {
+    path: '/plans',
+    name: 'plans',
+    component: () => import('../views/PlansView.vue'),
+  },
+  {
     path: '/onboarding',
     name: 'onboarding',
     component: () => import('../views/OnboardingView.vue'),
@@ -57,49 +62,57 @@ const router = createRouter({
 
 router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token')
-
+  
+  // Rutas públicas
+  const publicRoutes = ['/login', '/register', '/plans', '/onboarding']
+  const isPublicRoute = publicRoutes.includes(to.path)
+  
+  // Si requiere auth pero no hay token -> login
   if (to.meta.requiresAuth && !token) {
     next('/login')
     return
   }
-
+  
+  // Si hay token y va a login/register -> dashboard
   if ((to.path === '/login' || to.path === '/register') && token) {
     next('/')
     return
   }
-
-  // Verificar onboarding si la ruta requiere auth
-  if (to.meta.requiresAuth && to.path !== '/onboarding') {
+  
+  // Si no hay token y va a ruta que requiere auth -> login
+  if (!token && to.meta.requiresAuth) {
+    next('/login')
+    return
+  }
+  
+  // Si hay token, verificar onboarding y plan (incluyendo ruta raíz)
+  if (token && !isPublicRoute) {
     try {
       const axios = (await import('axios')).default
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-
-      const { data } = await axios.get('/tenant/onboarding')
-
-      // Si la respuesta no tiene la estructura esperada, asumir que necesita onboarding
-      if (!data.data) {
+      
+      const { data } = await axios.get('/tenant')
+      
+      // Si no tiene plan -> ir a seleccionar plan
+      if (!data.plan_id) {
+        next('/plans')
+        return
+      }
+      
+      // Si tiene plan pero no completó onboarding -> ir a onboarding
+      if (!data.onboarding_completed) {
         next('/onboarding')
         return
       }
-
-      if (!data.data.completed && !data.data.onboarding_completed) {
-        next('/onboarding')
-        return
-      }
+      
     } catch (error) {
-      console.error('Error checking onboarding:', error)
-      // En caso de error (401, 404, network), redirigir a login
-      if (error.response?.status === 401 || error.code === 'ERR_NETWORK') {
-        localStorage.removeItem('token')
-        next('/login')
-        return
-      }
-      // Para otros errores, permitir continuar pero loguear
-      next()
+      console.error('Error checking tenant:', error)
+      localStorage.removeItem('token')
+      next('/login')
       return
     }
   }
-
+  
   next()
 })
 

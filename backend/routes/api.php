@@ -9,7 +9,17 @@ use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\WhatsAppController;
 use App\Http\Controllers\Api\CatalogController;
 
-Route::post('/webhooks/whatsapp', [WebhookController::class, 'whatsapp']);
+// Webhook público para Evolution API (sin autenticación)
+Route::any('/webhooks/whatsapp', [WebhookController::class, 'whatsapp']);
+Route::any('/webhook-test', function(\Illuminate\Http\Request $request) {
+    \Illuminate\Support\Facades\Log::info('Webhook test', [
+        'method' => $request->method(),
+        'path' => $request->path(),
+        'headers' => $request->headers->all(),
+        'body' => $request->all(),
+    ]);
+    return response()->json(['received' => true, 'data' => $request->all()]);
+});
 
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
@@ -17,12 +27,14 @@ Route::prefix('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 });
 
+// Planes público (para ver antes de registrarse)
+Route::get('/plans', [TenantController::class, 'plans']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tenant', [TenantController::class, 'show']);
     Route::put('/tenant', [TenantController::class, 'update']);
     Route::get('/tenant/onboarding', [TenantController::class, 'onboardingStatus']);
     Route::put('/tenant/onboarding', [TenantController::class, 'updateOnboarding']);
-    Route::get('/plans', [TenantController::class, 'plans']);
 
     Route::get('/products', [ProductController::class, 'index']);
     Route::post('/products', [ProductController::class, 'store']);
@@ -38,6 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/whatsapp/connect', [WhatsAppController::class, 'connect']);
     Route::post('/whatsapp/disconnect', [WhatsAppController::class, 'disconnect']);
     Route::get('/whatsapp/qr', [WhatsAppController::class, 'qr']);
+    Route::get('/whatsapp/check-messages', [WhatsAppController::class, 'checkMessages']);
 
     Route::get('/catalog', [CatalogController::class, 'getCurrent']);
     Route::get('/catalog/template', [CatalogController::class, 'getTemplate']);

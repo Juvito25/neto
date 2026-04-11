@@ -14,10 +14,54 @@ class WebhookController extends Controller
 {
     public function whatsapp(Request $request)
     {
-        $instanceName = $request->header('X-Evolution-Instance');
+        // Debug: always return this first to see if endpoint is hit
+        file_put_contents('/tmp/webhook.log', date('Y-m-d H:i:s') . ' - endpoint hit\n', FILE_APPEND);
+        
+        // Log completo del payload para debugging
+        Log::info('=== WHATSAPP WEBHOOK RECEIVED ===', [
+            'method' => $request->method(),
+            'path' => $request->path(),
+            'ip' => $request->ip(),
+            'headers' => [
+                'X-Evolution-Instance' => $request->header('X-Evolution-Instance'),
+                'Content-Type' => $request->header('Content-Type'),
+                'apikey' => $request->header('apikey'),
+            ],
+            'query' => $request->query->all(),
+            'body' => $request->all(),
+        ]);
+
+        $rawPayload = $request->getContent();
+        file_put_contents('/tmp/webhook.log', date('Y-m-d H:i:s') . ' - ' . $rawPayload . "\n", FILE_APPEND);
+        
+        $payload = $request->all();
+        $event = $payload['event'] ?? null;
+
+        Log::info('Webhook event parsed', [
+            'event' => $event,
+        ]);
+
+        if (!$event) {
+            Log::warning('Webhook: No event in payload');
+            return response()->json(['status' => 'ok']);
+        }
+
+        // DEBUG: Log the payload structure
+        Log::debug('Webhook payload', [
+            'keys' => array_keys($payload),
+            'data_keys' => isset($payload['data']) ? array_keys($payload['data']) : 'no data',
+        ]);
+
+        $instanceName = $request->header('X-Evolution-Instance') 
+                      ?? $payload['instance'] 
+                      ?? $payload['instanceId'] 
+                      ?? null;
+        
+        Log::debug('Looking for instance', ['instanceName' => $instanceName]);
         
         if (!$instanceName) {
-            return response()->json(['message' => 'Instance not provided'], 400);
+            Log::warning('Webhook: No instance name found');
+            return response()->json(['status' => 'ok']);
         }
 
         $instance = WhatsappInstance::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
@@ -25,10 +69,11 @@ class WebhookController extends Controller
             ->first();
 
         if (!$instance) {
-            return response()->json(['message' => 'Instance not found'], 404);
+            return response()->json(['status' => 'ok']);
         }
 
         $tenant = $instance->tenant;
+        $tenantId = $tenant->id; // Get numeric ID, not UUID
 
         $payload = $request->all();
 
@@ -59,7 +104,28 @@ class WebhookController extends Controller
         }
 
         if (isset($payload['event']) && $payload['event'] === 'messages.upsert') {
-            $messages = $payload['data']['messages'] ?? [];
+            // Evolution API v2 format: data can be a single message or array of messages
+            $data = $payload['data'] ?? [];
+            
+            // Check if data has 'key' (single message format) or 'messages' (batch format)
+            if (isset($data['key']) && isset($data['key']['remoteJid'])) {
+                $messages = [$data]; // Single message
+            } elseif (isset($data['messages']) && is_array($data['messages'])) {
+                $messages = $data['messages']; // Batch format
+            } else {
+                Log::warning('Webhook: Unknown message format', ['data' => $data]);
+                return response()->json(['status' => 'unknown_format']);
+            }
+            
+            // Filter out non-message entries
+            $messages = array_filter($messages, function($msg) {
+                return isset($msg['key']) && isset($msg['key']['remoteJid']);
+            });
+            
+            if (empty($messages)) {
+                Log::warning('Webhook: No valid messages after filter');
+                return response()->json(['status' => 'no_messages']);
+            }
             
             foreach ($messages as $msg) {
                 if (isset($msg['key']['fromMe']) && $msg['key']['fromMe']) {
@@ -72,13 +138,13 @@ class WebhookController extends Controller
                 }
 
                 $phone = preg_replace('/\D/', '', $phone);
-                if (strlen($phone) > 10) {
-                    $phone = substr($phone, -10);
-                }
+                // No truncamos a 10 dígitos para no perder el código de país (ej. 549)
 
+                // Handle different message formats
                 $messageBody = $msg['message']['conversation'] ?? 
-                               $msg['message']['extendedTextMessage']['text'] ?? 
-                               '';
+                             $msg['message']['extendedTextMessage']['text'] ?? 
+                             $msg['message']['messageContextInfo'] ?? // v2 new format
+                             '';
 
                 $mediaUrl = null;
                 if (isset($msg['message']['imageMessage'])) {
@@ -89,8 +155,14 @@ class WebhookController extends Controller
 
                 $contactName = $msg['pushName'] ?? null;
 
+                Log::info('Dispatching job', [
+                    'tenant_id' => $tenantId,
+                    'phone' => $phone,
+                    'message' => substr($messageBody, 0, 30),
+                ]);
+
                 ProcessIncomingMessageJob::dispatch([
-                    'tenant_id' => $tenant->id,
+                    'tenant_id' => $tenantId,
                     'phone' => $phone,
                     'message' => $messageBody,
                     'media_url' => $mediaUrl,
@@ -98,7 +170,7 @@ class WebhookController extends Controller
                 ]);
             }
 
-            return response()->json(['status' => 'queued']);
+            return response()->json(['status' => 'queued', 'count' => count($messages)]);
         }
 
         return response()->json(['status' => 'ignored']);
