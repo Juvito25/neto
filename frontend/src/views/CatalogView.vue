@@ -40,10 +40,28 @@ async function loadItems() {
   try {
     const { data } = await axios.get(`/catalog/${catalog.value.id}/items`)
     if (data.success) {
-      items.value = data.data.data || []
+      items.value = (data.data.data || []).map(i => ({
+        ...i,
+        editing: false,
+        editName: i.name,
+        editPrice: i.price
+      }))
     }
   } catch (e) {
     console.error(e)
+  }
+}
+
+async function saveEdit(item) {
+  try {
+    const { data } = await axios.put(`/catalog/items/${item.id}`, { name: item.editName, price: item.editPrice })
+    if (data.success) {
+      item.name = item.editName
+      item.price = item.editPrice
+      item.editing = false
+    }
+  } catch (e) {
+    alert('Error al guardar el item')
   }
 }
 
@@ -278,13 +296,27 @@ function reset() {
 
         <div v-else class="items-grid">
           <div v-for="item in items" :key="item.id" class="item-card">
-            <h4>{{ item.name }}</h4>
-            <p v-if="item.description">{{ item.description }}</p>
-            <div class="item-details">
-              <span v-if="item.price" class="price">${{ item.price }}</span>
-              <span v-if="item.quantity !== null" class="stock">Stock: {{ item.quantity }}</span>
-              <span v-if="item.duration_minutes" class="duration">{{ item.duration_minutes }} min</span>
+            
+            <div v-if="!item.editing">
+              <h4>{{ item.name }}</h4>
+              <p v-if="item.description">{{ item.description }}</p>
+              <div class="item-details" style="align-items: center">
+                <span v-if="item.price !== null" class="price">${{ item.price }}</span>
+                <span v-if="item.quantity !== null" class="stock">Stock: {{ item.quantity }}</span>
+                <span v-if="item.duration_minutes" class="duration">{{ item.duration_minutes }} min</span>
+                <button @click="item.editing = true" class="btn-outline btn-small" style="margin-left: auto; padding: 0.25rem 0.5rem; font-size: 0.75rem;">Editar</button>
+              </div>
             </div>
+
+            <div v-else class="item-edit-form">
+                <input v-model="item.editName" placeholder="Nombre" style="width: 100%; margin-bottom: 0.5rem; padding: 0.3rem;" />
+                <input type="number" v-model="item.editPrice" placeholder="Precio ($)" style="width: 100%; margin-bottom: 0.5rem; padding: 0.3rem;" />
+                <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                  <button @click="saveEdit(item)" class="btn-primary" style="padding: 0.4rem; font-size: 0.8rem;">Guardar</button>
+                  <button @click="item.editing = false" class="btn-secondary" style="padding: 0.4rem; font-size: 0.8rem;">Cancelar</button>
+                </div>
+            </div>
+
           </div>
         </div>
       </div>

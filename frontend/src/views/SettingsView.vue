@@ -28,6 +28,41 @@
           <label>Instrucciones especiales para el bot</label>
           <textarea v-model="tenantForm.custom_prompt" placeholder="Agregá instrucciones personalizadas..."></textarea>
         </div>
+
+        <div class="form-group payment-settings">
+          <h3>Medios de pago</h3>
+          <div class="payment-option">
+            <label class="toggle-label">
+              <input type="checkbox" v-model="tenantForm.payment_transfer_enabled" /> 
+              Aceptar transferencia bancaria
+            </label>
+            <div v-if="tenantForm.payment_transfer_enabled" class="payment-fields">
+              <div class="input-group">
+                <label>CBU o Alias</label>
+                <input v-model="tenantForm.payment_transfer_cbu" placeholder="Ej: micuenta.banco o 1234..." />
+              </div>
+              <div class="input-group">
+                <label>Nombre del Titular</label>
+                <input v-model="tenantForm.payment_transfer_name" placeholder="Ej: Juan Perez" />
+              </div>
+              <div class="input-group">
+                <label>Banco (Opcional)</label>
+                <input v-model="tenantForm.payment_transfer_bank" placeholder="Ej: Santander" />
+              </div>
+            </div>
+          </div>
+
+          <div class="payment-option">
+            <label class="toggle-label">
+              <input type="checkbox" v-model="tenantForm.payment_cash_enabled" /> 
+              Aceptar pago al retirar/efectivo
+            </label>
+            <div v-if="tenantForm.payment_cash_enabled" class="payment-fields">
+              <input v-model="tenantForm.payment_cash_note" placeholder="Nota (ej: aboná en el local al retirar)" />
+            </div>
+          </div>
+        </div>
+
         <button type="submit" class="btn btn-primary">Guardar</button>
       </form>
     </div>
@@ -89,6 +124,12 @@ const tenantForm = ref({
   business_name: '',
   description: '',
   custom_prompt: '',
+  payment_transfer_enabled: false,
+  payment_transfer_cbu: '',
+  payment_transfer_name: '',
+  payment_transfer_bank: '',
+  payment_cash_enabled: false,
+  payment_cash_note: '',
 })
 
 const progressPercent = computed(() => {
@@ -104,6 +145,12 @@ const loadData = async () => {
       business_name: data.business_name || '',
       description: data.description || '',
       custom_prompt: data.custom_prompt || '',
+      payment_transfer_enabled: Boolean(data.payment_transfer_enabled),
+      payment_transfer_cbu: data.payment_transfer_cbu || '',
+      payment_transfer_name: data.payment_transfer_name || '',
+      payment_transfer_bank: data.payment_transfer_bank || '',
+      payment_cash_enabled: Boolean(data.payment_cash_enabled),
+      payment_cash_note: data.payment_cash_note || '',
     }
   } catch (e) {
     console.error(e)
@@ -230,4 +277,14 @@ onUnmounted(() => {
 .loading { padding: 2rem; color: #666; }
 .progress-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
 .progress { height: 100%; background: #0052cc; transition: width 0.3s; }
+
+.payment-settings { margin-top: 2rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem; }
+.payment-settings h3 { margin-bottom: 1rem; font-size: 1.1rem; }
+.payment-option { margin-bottom: 1.5rem; background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0; }
+.toggle-label { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; cursor: pointer; }
+.toggle-label input[type="checkbox"] { width: auto; }
+.payment-fields { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; margin-left: 1.5rem; }
+.input-group { margin-bottom: 0.5rem; }
+.input-group label { display: block; font-size: 0.875rem; color: #475569; margin-bottom: 0.25rem; font-weight: 500; }
+.payment-fields input { padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px; width: 100%; }
 </style>

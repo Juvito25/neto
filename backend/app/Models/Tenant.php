@@ -31,6 +31,16 @@ class Tenant extends Model implements Authenticatable
         'whatsapp_instance_id',
         'whatsapp_status',
         'stripe_customer_id',
+        'payment_transfer_enabled',
+        'payment_transfer_cbu',
+        'payment_transfer_name',
+        'payment_transfer_bank',
+        'payment_cash_enabled',
+        'payment_cash_note',
+        'subscription_status',
+        'mp_subscription_id',
+        'mp_customer_id',
+        'subscribed_at',
     ];
 
     protected $hidden = [

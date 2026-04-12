@@ -243,6 +243,25 @@ class CatalogController extends Controller
         ]);
     }
 
+    public function updateItem(Request $request, string $itemId)
+    {
+        $tenantId = $request->user()->tenant_id;
+        $item = CatalogItem::where('id', $itemId)->where('tenant_id', $tenantId)->first();
+
+        if (!$item) {
+            return response()->json(['success' => false, 'message' => 'Item no encontrado'], 404);
+        }
+        
+        $validated = $request->validate([
+            'name' => 'string|max:255',
+            'price' => 'numeric|nullable',
+        ]);
+
+        $item->update($validated);
+        
+        return response()->json(['success' => true, 'data' => $item]);
+    }
+
     public function destroy(Request $request, string $catalogId)
     {
         $tenantId = $request->user()->tenant_id;

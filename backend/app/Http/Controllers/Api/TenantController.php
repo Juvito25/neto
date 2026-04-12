@@ -42,6 +42,12 @@ class TenantController extends Controller
             'business_hours' => 'sometimes|array',
             'faqs' => 'sometimes|array',
             'custom_prompt' => 'sometimes|string',
+            'payment_transfer_enabled' => 'sometimes|boolean',
+            'payment_transfer_cbu' => 'sometimes|string|nullable|max:255',
+            'payment_transfer_name' => 'sometimes|string|nullable|max:255',
+            'payment_transfer_bank' => 'sometimes|string|nullable|max:255',
+            'payment_cash_enabled' => 'sometimes|boolean',
+            'payment_cash_note' => 'sometimes|string|nullable|max:255',
         ]);
 
         $tenant->update($validated);

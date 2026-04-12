@@ -8,9 +8,15 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\WhatsAppController;
 use App\Http\Controllers\Api\CatalogController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\SalesController;
+use App\Http\Controllers\Api\BillingController;
 
 // Webhook público para Evolution API (sin autenticación)
 Route::any('/webhooks/whatsapp', [WebhookController::class, 'whatsapp']);
+
+// Webhook de MercadoPago
+Route::post('/billing/webhook', [BillingController::class, 'webhook']);
 Route::any('/webhook-test', function(\Illuminate\Http\Request $request) {
     \Illuminate\Support\Facades\Log::info('Webhook test', [
         'method' => $request->method(),
@@ -46,6 +52,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/conversations/{contact}', [ConversationController::class, 'show']);
     Route::get('/conversations/{contact}/messages', [ConversationController::class, 'messages']);
 
+    Route::get('/dashboard/recent-conversations', [DashboardController::class, 'recentConversations']);
+
     Route::get('/whatsapp/status', [WhatsAppController::class, 'status']);
     Route::post('/whatsapp/connect', [WhatsAppController::class, 'connect']);
     Route::post('/whatsapp/disconnect', [WhatsAppController::class, 'disconnect']);
@@ -56,5 +64,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/catalog/template', [CatalogController::class, 'getTemplate']);
     Route::post('/catalog/upload', [CatalogController::class, 'upload']);
     Route::get('/catalog/{catalogId}/items', [CatalogController::class, 'getItems']);
+    Route::put('/catalog/items/{item}', [CatalogController::class, 'updateItem']);
     Route::delete('/catalog/{catalogId}', [CatalogController::class, 'destroy']);
+
+    Route::get('/sales', [SalesController::class, 'index']);
+    Route::patch('/sales/{sale}/status', [SalesController::class, 'updateStatus']);
+
+    Route::post('/billing/subscription', [BillingController::class, 'createSubscription']);
+    Route::get('/billing/status', [BillingController::class, 'status']);
 });

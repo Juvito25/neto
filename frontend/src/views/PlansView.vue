@@ -30,10 +30,20 @@ async function selectPlan(plan) {
       headers: { Authorization: `Bearer ${token}` }
     })
     
+    if (plan.price_cents > 0) {
+      const { data } = await axios.post('/billing/subscription', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (data.init_point) {
+        window.location.href = data.init_point
+        return
+      }
+    }
+
     router.push('/onboarding')
   } catch (e) {
     console.error(e)
-    alert('Error al seleccionar plan')
+    alert('Error al procesar el plan')
   } finally {
     selecting.value = false
   }

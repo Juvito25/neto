@@ -27,6 +27,17 @@
       </div>
     </div>
 
+    <div v-if="pendingSalesCount > 0" class="whatsapp-prompt" style="background: #fffbeb; border-color: #fef08a;">
+      <div class="prompt-content">
+        <div class="prompt-icon">🛒</div>
+        <div class="prompt-text">
+          <h3 style="color: #92400e;">{{ pendingSalesCount }} Ventas pendientes</h3>
+          <p>El bot cerró ventas que aún requieren confirmación o entrega.</p>
+        </div>
+        <router-link to="/sales" class="prompt-btn" style="background: #d97706;">Ver ventas</router-link>
+      </div>
+    </div>
+
     <div class="metrics">
       <div class="metric-card">
         <span class="metric-value">{{ metrics.messagesReceived }}</span>
@@ -44,7 +55,7 @@
 
     <div class="conversations-list">
       <h2>Conversaciones recientes</h2>
-      <div v-for="contact in contacts" :key="contact.id" class="contact-item">
+      <div v-for="contact in contacts" :key="contact.id" class="contact-item cursor-pointer" @click="goToConversation(contact.id)">
         <div class="contact-info">
           <span class="contact-name">{{ contact.name || contact.phone }}</span>
           <span class="contact-phone">{{ contact.phone }}</span>
@@ -71,6 +82,7 @@ const tenant = ref(null)
 const whatsappStatus = ref('disconnected')
 const trialDaysRemaining = ref(0)
 const contacts = ref([])
+const pendingSalesCount = ref(0)
 const showPlansModal = ref(false)
 const metrics = ref({
   messagesReceived: 0,
@@ -84,10 +96,20 @@ onMounted(async () => {
     tenant.value = data
     whatsappStatus.value = data.whatsapp_status
     trialDaysRemaining.value = data.days_remaining_in_trial || 0
+
+    const { data: convData } = await axios.get('/dashboard/recent-conversations')
+    contacts.value = convData.data
+
+    const { data: salesData } = await axios.get('/sales?status=pending')
+    pendingSalesCount.value = salesData.total || salesData.data?.length || 0
   } catch (e) {
     console.error(e)
   }
 })
+
+const goToConversation = (contactId) => {
+  router.push({ path: '/conversations', query: { selected_id: contactId } })
+}
 </script>
 
 <style scoped>
@@ -265,6 +287,15 @@ onMounted(async () => {
   border-radius: 8px;
   border: 1px solid var(--color-border);
   margin-bottom: 0.5rem;
+  transition: background 0.2s;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.contact-item:hover {
+  background: var(--color-surface);
 }
 
 .contact-info {

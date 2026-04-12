@@ -14,4 +14,9 @@ return [
         'url' => env('EVOLUTION_PUBLIC_URL', 'http://evolution:8080'),
         'key' => env('EVOLUTION_API_KEY'),
     ],
+    'mercadopago' => [
+        'access_token' => env('MP_ACCESS_TOKEN'),
+        'public_key' => env('MP_PUBLIC_KEY'),
+        'webhook_secret' => env('MP_WEBHOOK_SECRET'),
+    ],
 ];
