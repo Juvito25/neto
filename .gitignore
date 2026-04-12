@@ -29,5 +29,10 @@ docker-compose.override.yml
 *.log
 
 # Cache
-bootstrap/cache/*
+bootstrap/cache/
 !bootstrap/cache/.gitkeep
+
+# Generated files
+backend/app/Console/
+backend/html/
+backend/database/migrations/2026_04_10_*.php
