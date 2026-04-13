@@ -82,14 +82,21 @@ class ProcessIncomingMessageJob implements ShouldQueue
         $systemPrompt = $this->buildSystemPrompt($tenant, $catalogContext);
         $conversationHistory = $this->buildConversationHistory($tenantId, $contact->id);
 
+        $startTime = microtime(true);
+        $originalMessage = $messageBody;
+        $messageBody = $this->sanitizeMessage($messageBody);
+
         $response = $this->callGroq($systemPrompt, $conversationHistory, $messageBody);
+
+        $duration = microtime(true) - $startTime;
 
         if ($response) {
             $replyContent = $response['content'];
 
-            if (preg_match('/VENTA_CERRADA:\s*(.*?)\s*\|\s*(transfer|cash)/i', $replyContent, $matches)) {
+            if (preg_match('/VENTA_CERRADA:\s*(.*?)\s*\|\s*(transfer|cash)\s*\|\s*([\d\.,]+)/i', $replyContent, $matches)) {
                 $itemsDesc = trim($matches[1]);
                 $paymentMethod = strtolower(trim($matches[2]));
+                $amount = str_replace(',', '.', preg_replace('/[^0-9\.,]/', '', $matches[3]));
 
                 \App\Models\Sale::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)->create([
                     'tenant_id' => $tenantId,
@@ -97,10 +104,11 @@ class ProcessIncomingMessageJob implements ShouldQueue
                     'items_description' => $itemsDesc,
                     'payment_method' => $paymentMethod,
                     'status' => 'pending',
+                    'total_amount' => $amount,
                 ]);
 
                 // Limpiar tag de la respuesta del bot independientemente de corchetes o asteriscos
-                $replyContent = trim(preg_replace('/[\*\[]?\s*VENTA_CERRADA:.*?\|.*?(?:transfer|cash)\s*[\*\]]?/i', '', $replyContent));
+                $replyContent = trim(preg_replace('/[\*\[]?\s*VENTA_CERRADA:.*?\|.*?(?:transfer|cash)\s*\|.*?\s*[\*\]]?/i', '', $replyContent));
             }
 
             Message::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)->create([
@@ -112,6 +120,14 @@ class ProcessIncomingMessageJob implements ShouldQueue
             ]);
 
             $tenant->increment('messages_used', $response['tokens']);
+
+            Log::info('Message processed', [
+                'tenant_id' => $tenantId,
+                'phone' => $phone,
+                'duration_ms' => round($duration * 1000, 2),
+                'tokens' => $response['tokens'],
+                'sanitized' => $originalMessage !== $messageBody,
+            ]);
 
             $this->sendMessage($tenant, $phone, $replyContent);
         }
@@ -218,13 +234,11 @@ Si elige transferencia, BRINDALE tus datos bancarios para que envíe el importe.
 Una vez que el cliente confirme que enviará el abono o que lo retirará, dale un mensaje de confirmación amigable.
 
 REGLA OBLIGATORIA DEL SISTEMA (CRÍTICO):
-Siempre que se cierre una venta (es decir, el cliente ya eligió qué comprar y cómo pagar, y tú estás confirmando el pedido), DEBES incluir al final de tu respuesta, en una línea separada, el siguiente bloque exacto, reemplazando la descripción y método de pago (transfer o cash):
-[VENTA_CERRADA: (descripción de los items) | transfer]
-o
-[VENTA_CERRADA: (descripción de los items) | cash]
+Siempre que se cierre una venta (es decir, el cliente ya eligió qué comprar y cómo pagar, y tú estás confirmando el pedido), DEBES incluir al final de tu respuesta, en una línea separada, el siguiente bloque exacto, reemplazando la descripción, método de pago (transfer o cash) y EL MONTO TOTAL:
+[VENTA_CERRADA: (descripción de los items) | (transfer/cash) | (monto total)]
 
 Ejemplo correcto:
-[VENTA_CERRADA: 2 docenas de media lunas de manteca | transfer]
+[VENTA_CERRADA: 2 docenas de media lunas de manteca | transfer | 8500]
 
 No agregues este código si todavía estás preguntando detalles o si el cliente no confirmó. Solo ponlo en el mensaje final de confirmación de la venta.";
         }
@@ -261,7 +275,7 @@ No agregues este código si todavía estás preguntando detalles o si el cliente
         }
 
         $messages = array_merge($conversationHistory, [
-            ['role' => 'user', 'content' => $currentMessage]
+            ['role' => 'user', 'content' => "### USER MESSAGE BEGIN ###\n{$currentMessage}\n### USER MESSAGE END ###"]
         ]);
 
         try {
@@ -299,6 +313,35 @@ No agregues este código si todavía estás preguntando detalles o si el cliente
             ]);
             return null;
         }
+    }
+
+    private function sanitizeMessage(string $message): string
+    {
+        // Simple prompt injection protection
+        $keywords = [
+            'ignore all previous instructions',
+            'ignore previous instructions',
+            'forget everything',
+            'forget all instructions',
+            'eres un',
+            'ahora eres',
+            'you are now',
+            'system prompt',
+            'instrucciones del sistema',
+        ];
+
+        $sanitized = $message;
+        foreach ($keywords as $keyword) {
+            if (stripos($sanitized, $keyword) !== false) {
+                Log::warning('Potential Prompt Injection detected', [
+                    'tenant_id' => $this->messageData['tenant_id'] ?? null,
+                    'keyword' => $keyword,
+                ]);
+                $sanitized = str_ireplace($keyword, '[BLOQUEADO]', $sanitized);
+            }
+        }
+
+        return $sanitized;
     }
 
     private function sendMessage(Tenant $tenant, string $phone, string $message): void

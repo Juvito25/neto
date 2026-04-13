@@ -25,11 +25,22 @@ class WebhookController extends Controller
             'headers' => [
                 'X-Evolution-Instance' => $request->header('X-Evolution-Instance'),
                 'Content-Type' => $request->header('Content-Type'),
-                'apikey' => $request->header('apikey'),
+                'apikey' => substr((string)$request->header('apikey'), 0, 5) . '...',
             ],
             'query' => $request->query->all(),
-            'body' => $request->all(),
+            // 'body' => $request->all(), // Evitar logear el body completo si es muy grande
         ]);
+
+        // Security: Validate API Key
+        $evolutionKey = config('services.evolution.key');
+        if ($request->header('apikey') !== $evolutionKey) {
+            Log::warning('Webhook Security: Invalid apikey', [
+                'provided' => substr((string)$request->header('apikey'), 0, 5) . '...',
+                'ip' => $request->ip()
+            ]);
+            // Return 200 to not reveal that we are blocking the request to potential attackers
+            return response()->json(['status' => 'ok']);
+        }
 
         $rawPayload = $request->getContent();
         file_put_contents('/tmp/webhook.log', date('Y-m-d H:i:s') . ' - ' . $rawPayload . "\n", FILE_APPEND);

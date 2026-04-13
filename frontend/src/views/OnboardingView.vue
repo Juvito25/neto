@@ -1,319 +1,268 @@
 <template>
-  <div class="onboarding-wizard">
-    <div class="wizard-container">
-      <!-- Header con progreso -->
-      <div class="wizard-header">
-        <h1>Configuración de tu cuenta</h1>
-        <div class="progress-bar">
+  <div class="onboarding-page">
+    <div class="onboarding-card">
+      <!-- Sidebar Progress -->
+      <aside class="onboarding-sidebar">
+        <div class="onboarding-brand">
+          <img :src="logoHorizontal" alt="NETO" class="brand-logo">
+        </div>
+
+        <nav class="steps-nav">
           <div
             v-for="(step, index) in steps"
             :key="step.id"
-            class="progress-step"
+            class="nav-step"
             :class="{
               'completed': currentStepIndex > index,
               'active': currentStepIndex === index,
               'locked': currentStepIndex < index
             }"
           >
-            <div class="step-number">{{ index + 1 }}</div>
-            <span class="step-label">{{ step.label }}</span>
+            <div class="step-icon">
+              <span v-if="currentStepIndex > index" class="check">✓</span>
+              <span v-else>{{ index + 1 }}</span>
+            </div>
+            <div class="step-info">
+              <span class="step-label">{{ step.label }}</span>
+              <span class="step-desc">{{ step.shortDesc }}</span>
+            </div>
           </div>
+        </nav>
+
+        <div class="sidebar-footer">
+          <p>Tu asistente IA está casi listo.</p>
         </div>
-      </div>
+      </aside>
 
-      <!-- Contenido del wizard -->
-      <div class="wizard-content">
-        <!-- Paso 1: Información del negocio -->
-        <div v-if="currentStepIndex === 0" class="step-content">
-          <h2>Información de tu negocio</h2>
-          <p class="step-description">Contanos sobre tu negocio para personalizar tu chatbot</p>
+      <!-- Main Content Area -->
+      <main class="onboarding-main">
+        <transition name="fade-slide" mode="out-in">
+          <!-- Step 1: Business Info -->
+          <div v-if="currentStepIndex === 0" key="step1" class="step-pane">
+            <header class="step-header">
+              <h2>Configurá tu negocio</h2>
+              <p>Contanos un poco sobre lo que hacés para entrenar a tu IA.</p>
+            </header>
 
-          <form @submit.prevent="nextStep" class="wizard-form">
-            <div class="form-group">
-              <label for="rubro">Rubro *</label>
-              <input
-                type="text"
-                id="rubro"
-                v-model="formData.rubro"
-                required
-                placeholder="Ej: Restaurante, Tienda de ropa, Consultoría"
-              />
-            </div>
+            <form @submit.prevent="nextStep" class="onboarding-form">
+              <div class="form-group">
+                <label>¿A qué se dedica tu negocio? *</label>
+                <input
+                  v-model="formData.rubro"
+                  required
+                  placeholder="Ej: Restaurante Vegano, Tienda de Mascotas"
+                />
+              </div>
 
-            <div class="form-group">
-              <label for="description">Descripción *</label>
-              <textarea
-                id="description"
-                v-model="formData.description"
-                required
-                rows="4"
-                placeholder="Describí tu negocio, productos o servicios principales..."
-              ></textarea>
-            </div>
+              <div class="form-group">
+                <label>Descripción detallada *</label>
+                <textarea
+                  v-model="formData.description"
+                  required
+                  placeholder="Ej: Somos una pizzería artesanal que hace envíos en el barrio de Belgrano de 19 a 23hs."
+                ></textarea>
+              </div>
 
-            <div class="form-group">
-              <label>Horarios de atención</label>
-              <div class="hours-grid">
-                <div class="day-row">
-                  <span class="day-label">Lunes a Viernes:</span>
-                  <input
-                    type="text"
-                    v-model="formData.business_hours.weekdays"
-                    placeholder="Ej: 09:00 - 18:00"
-                  />
-                </div>
-                <div class="day-row">
-                  <span class="day-label">Sábados:</span>
-                  <input
-                    type="text"
-                    v-model="formData.business_hours.saturday"
-                    placeholder="Ej: 09:00 - 13:00"
-                  />
-                </div>
-                <div class="day-row">
-                  <span class="day-label">Domingos:</span>
-                  <input
-                    type="text"
-                    v-model="formData.business_hours.sunday"
-                    placeholder="Ej: Cerrado"
-                  />
+              <div class="form-group">
+                <label>Días y horarios</label>
+                <div class="horizontal-inputs">
+                  <div class="sub-group">
+                    <span class="input-label">Lunes a Viernes</span>
+                    <input v-model="formData.business_hours.weekdays" placeholder="09:00 - 18:00" />
+                  </div>
+                  <div class="sub-group">
+                    <span class="input-label">Fines de semana</span>
+                    <input v-model="formData.business_hours.saturday" placeholder="10:00 - 14:00" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="form-group">
-              <label>FAQs (Preguntas frecuentes)</label>
-              <div class="faqs-list">
-                <div v-for="(faq, index) in formData.faqs" :key="index" class="faq-item">
-                  <input
-                    type="text"
-                    v-model="faq.question"
-                    placeholder="Pregunta"
-                    class="faq-question"
-                  />
-                  <input
-                    type="text"
-                    v-model="faq.answer"
-                    placeholder="Respuesta"
-                    class="faq-answer"
-                  />
-                  <button type="button" @click="removeFaq(index)" class="btn-remove">×</button>
-                </div>
-                <button type="button" @click="addFaq" class="btn-add-faq">+ Agregar FAQ</button>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button type="submit" class="btn-primary">Continuar</button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Paso 2: Conectar WhatsApp -->
-        <div v-if="currentStepIndex === 1" class="step-content">
-          <h2>Conectá tu WhatsApp</h2>
-          <p class="step-description">Escaneá el código QR para vincular tu número de WhatsApp</p>
-
-          <div class="qr-section">
-            <div v-if="qrCode" class="qr-container">
-              <div v-if="qrCode.startsWith('data:image')" class="qr-image-wrapper">
-                <img :src="qrCode" alt="Código QR" class="qr-image" />
-              </div>
-              <div v-else class="qr-code-text">
-                <p class="qr-text-label">Escaneá este código con WhatsApp:</p>
-                <div class="qr-text-code">{{ qrCode }}</div>
-              </div>
-              <p class="qr-instructions">
-                1. Abrí WhatsApp en tu teléfono<br/>
-                2. Tocá los tres puntos (Android) o Configuración (iPhone)<br/>
-                3. Seleccioná "Dispositivos vinculados" → "Vincular dispositivo"<br/>
-                4. Escaneá este código QR
-              </p>
-            </div>
-            <div v-else class="qr-loading">
-              <div class="spinner"></div>
-              <p>Generando código QR...</p>
-            </div>
+              <footer class="step-footer">
+                <button type="submit" class="btn btn-primary">Siguiente paso</button>
+              </footer>
+            </form>
           </div>
 
-          <div class="connection-status" :class="whatsappStatus">
-            <span class="status-indicator"></span>
-            {{ whatsappStatusText }}
-          </div>
+          <!-- Step 2: WhatsApp Connection -->
+          <div v-else-if="currentStepIndex === 1" key="step2" class="step-pane">
+            <header class="step-header text-center">
+              <h2>Conectá tu WhatsApp</h2>
+              <p>Escaneá el código para que el bot pueda empezar a responder.</p>
+            </header>
 
-          <div class="form-actions">
-            <button type="button" @click="prevStep" class="btn-secondary">Atrás</button>
-            <button
-              type="button"
-              @click="nextStep"
-              class="btn-primary"
-              :disabled="whatsappStatus !== 'connected'"
-            >
-              Continuar
-            </button>
-          </div>
-        </div>
-
-        <!-- Paso 3: Subir catálogo -->
-        <div v-if="currentStepIndex === 2" class="step-content">
-          <h2>Subí tu catálogo de productos/servicios</h2>
-          <p class="step-description">El chatbot usará esta información para atender a tus clientes</p>
-
-          <div class="catalog-upload">
-            <div class="upload-options">
-              <button @click="downloadTemplate('products')" class="btn-outline">
-                📥 Descargar plantilla productos
-              </button>
-              <button @click="downloadTemplate('services')" class="btn-outline">
-                📥 Descargar plantilla servicios
-              </button>
-              <button @click="downloadTemplate('both')" class="btn-outline">
-                📥 Descargar plantilla combinada
-              </button>
+            <div class="qr-preview-area">
+              <div v-if="qrCode" class="qr-box">
+                <div class="qr-border">
+                  <img :src="qrCode" alt="QR" class="qr-image" />
+                </div>
+                <div class="qr-steps">
+                  <p>1. Abrí WhatsApp en tu celu</p>
+                  <p>2. Menú -> Dispositivos vinculados</p>
+                  <p>3. Escaneá el código</p>
+                </div>
+              </div>
+              <div v-else class="qr-placeholder">
+                <div class="loader"></div>
+                <p>Generando código seguro...</p>
+              </div>
             </div>
 
-            <div class="upload-area" :class="{ 'dragging': isDragging }"
-              @dragover.prevent="isDragging = true"
-              @dragleave.prevent="isDragging = false"
-              @drop.prevent="handleDrop">
+            <div class="status-indicator-bar" :class="whatsappStatus">
+              <span class="dot"></span>
+              {{ whatsappStatus === 'connected' ? 'Número vinculado con éxito' : 'Esperando conexión...' }}
+            </div>
 
-              <input
-                type="file"
-                ref="fileInput"
-                @change="handleFileSelect"
-                accept=".csv,.json"
-                class="file-input"
-              />
+            <footer class="step-footer split">
+              <button @click="prevStep" class="btn btn-outline">Atrás</button>
+              <button @click="nextStep" class="btn btn-primary" :disabled="whatsappStatus !== 'connected'">
+                {{ whatsappStatus === 'connected' ? 'Continuar' : 'Vincular para seguir' }}
+              </button>
+            </footer>
+          </div>
 
-              <div class="upload-placeholder" v-if="!selectedFile">
-                <span class="upload-icon">📁</span>
-                <p>Arrastrá tu archivo CSV o JSON acá</p>
-                <p class="upload-hint">o</p>
-                <button type="button" @click="$refs.fileInput.click()" class="btn-select">
-                  Seleccionar archivo
+          <!-- Step 3: Catalog Upload -->
+          <div v-else-if="currentStepIndex === 2" key="step3" class="step-pane">
+            <header class="step-header">
+              <h2>Cargá tus productos</h2>
+              <p>Subí tu catálogo para que el bot conozca tus precios y stock.</p>
+            </header>
+
+            <div class="upload-vibe">
+              <div class="template-selector">
+                <button @click="downloadTemplate('both')" class="btn-template">
+                  <span class="icon">📥</span>
+                  <span>Descargar Plantilla CSV</span>
                 </button>
-                <p class="upload-max">Máximo 5MB</p>
               </div>
 
-              <div v-else class="file-selected">
-                <span class="file-icon">📄</span>
-                <span class="file-name">{{ selectedFile.name }}</span>
-                <span class="file-size">{{ formatFileSize(selectedFile.size) }}</span>
-                <button type="button" @click="selectedFile = null" class="btn-remove-file">×</button>
+              <div 
+                class="dropzone-area" 
+                :class="{ 'dragging': isDragging, 'has-file': selectedFile }"
+                @dragover.prevent="isDragging = true"
+                @dragleave.prevent="isDragging = false"
+                @drop.prevent="handleDrop"
+              >
+                <input type="file" ref="fileInput" @change="handleFileSelect" accept=".csv" class="hidden-input" />
+                
+                <div v-if="!selectedFile" class="dropzone-empty" @click="$refs.fileInput.click()">
+                  <div class="drop-icon">📄</div>
+                  <p>Arrastrá tu archivo o buscá en tu equipo</p>
+                  <span class="hint">Admite CSV y JSON hasta 5MB</span>
+                </div>
+                <div v-else class="dropzone-file">
+                  <span class="file-icon">✅</span>
+                  <div class="file-info">
+                    <p class="file-name">{{ selectedFile.name }}</p>
+                    <p class="file-meta">{{ formatFileSize(selectedFile.size) }}</p>
+                  </div>
+                  <button @click="selectedFile = null" class="btn-clear-file">×</button>
+                </div>
+              </div>
+
+              <div v-if="uploadProgress > 0" class="mini-progress-bar">
+                <div class="bar-fill" :style="{ width: uploadProgress + '%' }"></div>
+              </div>
+
+              <p v-if="uploadError" class="error-text">{{ uploadError }}</p>
+            </div>
+
+            <footer class="step-footer split">
+              <button @click="prevStep" class="btn btn-outline">Atrás</button>
+              <button 
+                @click="uploadCatalog" 
+                class="btn btn-primary" 
+                :disabled="!selectedFile || isUploading"
+              >
+                {{ isUploading ? 'Procesando...' : 'Subir y continuar' }}
+              </button>
+            </footer>
+          </div>
+
+          <!-- Step 4: AI Behavior -->
+          <div v-else-if="currentStepIndex === 3" key="step4" class="step-pane">
+            <header class="step-header">
+              <h2>Personalizá tu IA</h2>
+              <p>Dale instrucciones específicas a tu chatbot.</p>
+            </header>
+
+            <form @submit.prevent="nextStep" class="onboarding-form">
+              <div class="form-group">
+                <label>Comportamiento del bot *</label>
+                <textarea
+                  v-model="formData.custom_prompt"
+                  required
+                  rows="6"
+                  placeholder="Ej: Sé amable, usá emojis. Si preguntan por envíos, deciles que tardamos 48hs."
+                ></textarea>
+                <p class="field-hint">Este es el "cerebro" de tu bot. Sé lo más claro posible.</p>
+              </div>
+
+              <div class="form-group">
+                <label>Mensaje de bienvenida</label>
+                <input
+                  v-model="formData.greeting_message"
+                  placeholder="Hola! Bienvenido a mi negocio..."
+                />
+              </div>
+
+              <footer class="step-footer split">
+                <button @click="prevStep" class="btn btn-outline">Atrás</button>
+                <button type="submit" class="btn btn-primary">Casi listo</button>
+              </footer>
+            </form>
+          </div>
+
+          <!-- Step 5: Final Review -->
+          <div v-else-if="currentStepIndex === 4" key="step5" class="step-pane">
+            <header class="step-header">
+              <h2>Revisá tu configuración</h2>
+              <p>Hicimos un resumen de todo lo configurado.</p>
+            </header>
+
+            <div class="review-grid">
+              <div class="review-item">
+                <span class="review-icon">🏢</span>
+                <div class="review-data">
+                  <strong>Negocio</strong>
+                  <p>{{ formData.rubro }}</p>
+                </div>
+              </div>
+              <div class="review-item">
+                <span class="review-icon">📱</span>
+                <div class="review-data">
+                  <strong>WhatsApp</strong>
+                  <p class="status-ok">Viculado correctamente</p>
+                </div>
+              </div>
+              <div class="review-item">
+                <span class="review-icon">🤖</span>
+                <div class="review-data">
+                  <strong>Personalidad</strong>
+                  <p>Instrucciones de IA guardadas</p>
+                </div>
               </div>
             </div>
 
-            <div v-if="uploadProgress > 0" class="upload-progress">
-              <div class="progress-bar-fill" :style="{ width: uploadProgress + '%' }"></div>
-              <span>{{ uploadProgress }}%</span>
+            <div class="tos-agreement">
+              <label class="check-container">
+                <input type="checkbox" v-model="termsAccepted" />
+                <span class="checkmark"></span>
+                Acepto los términos del servicio de NETO
+              </label>
             </div>
 
-            <div v-if="uploadError" class="upload-error">
-              {{ uploadError }}
-            </div>
+            <footer class="step-footer">
+              <button 
+                @click="activateAccount" 
+                class="btn btn-activate btn-primary-gradient"
+                :disabled="!termsAccepted || !canActivate"
+              >
+                🚀 Activar mi chatbot inteligente
+              </button>
+            </footer>
           </div>
-
-          <div class="form-actions">
-            <button type="button" @click="prevStep" class="btn-secondary">Atrás</button>
-            <button
-              type="button"
-              @click="uploadCatalog"
-              class="btn-primary"
-              :disabled="!selectedFile || isUploading"
-            >
-              {{ isUploading ? 'Subiendo...' : 'Subir catálogo' }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Paso 4: Personalizar chatbot -->
-        <div v-if="currentStepIndex === 3" class="step-content">
-          <h2>Personalizá tu chatbot</h2>
-          <p class="step-description">Configurá cómo se va a comportar tu asistente virtual</p>
-
-          <form @submit.prevent="nextStep" class="wizard-form">
-            <div class="form-group">
-              <label for="custom_prompt">Instrucciones del chatbot *</label>
-              <textarea
-                id="custom_prompt"
-                v-model="formData.custom_prompt"
-                required
-                rows="6"
-                placeholder="Ej: Sos un asistente virtual amable y profesional que ayuda a los clientes con preguntas sobre nuestros productos. Respondé de forma concisa y ofrecé ayuda adicional cuando sea necesario..."
-              ></textarea>
-              <p class="form-hint">Estas instrucciones guiarán el comportamiento y tono de tu chatbot</p>
-            </div>
-
-            <div class="form-group">
-              <label for="greeting_message">Mensaje de saludo</label>
-              <input
-                type="text"
-                id="greeting_message"
-                v-model="formData.greeting_message"
-                placeholder="¡Hola! 👋 Bienvenido a {{business_name}}, ¿en qué puedo ayudarte?"
-              />
-              <p class="form-hint">Mensaje que se envía automáticamente cuando un cliente inicia conversación</p>
-            </div>
-
-            <div class="form-actions">
-              <button type="button" @click="prevStep" class="btn-secondary">Atrás</button>
-              <button type="submit" class="btn-primary">Continuar</button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Paso 5: Revisar y activar -->
-        <div v-if="currentStepIndex === 4" class="step-content">
-          <h2>Revisá y activá tu cuenta</h2>
-          <p class="step-description">Último paso para comenzar a usar NETO</p>
-
-          <div class="review-section">
-            <div class="review-card">
-              <h3>📋 Información del negocio</h3>
-              <ul>
-                <li><strong>Rubro:</strong> {{ formData.rubro || 'No completado' }}</li>
-                <li><strong>Descripción:</strong> {{ formData.description ? formData.description.substring(0, 100) + '...' : 'No completada' }}</li>
-              </ul>
-            </div>
-
-            <div class="review-card">
-              <h3>📱 WhatsApp</h3>
-              <span class="status-badge" :class="whatsappStatus">
-                {{ whatsappStatus === 'connected' ? 'Conectado ✓' : 'No conectado' }}
-              </span>
-            </div>
-
-            <div class="review-card">
-              <h3>📦 Catálogo</h3>
-              <p>{{ catalogItemsCount }} productos/servicios cargados</p>
-            </div>
-
-            <div class="review-card">
-              <h3>🤖 Chatbot</h3>
-              <p>{{ formData.custom_prompt ? 'Personalizado ✓' : 'No configurado' }}</p>
-            </div>
-          </div>
-
-          <div class="activation-section">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="termsAccepted" />
-              Acepto los términos y condiciones de NETO
-            </label>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" @click="prevStep" class="btn-secondary">Atrás</button>
-            <button
-              type="button"
-              @click="activateAccount"
-              class="btn-primary btn-activate"
-              :disabled="!termsAccepted || !canActivate"
-            >
-              🚀 Activar mi cuenta
-            </button>
-          </div>
-        </div>
-      </div>
+        </transition>
+      </main>
     </div>
   </div>
 </template>
@@ -323,26 +272,23 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import QRCode from 'qrcode'
+import logoHorizontal from '@/assets/branding/media__1776087843743.png'
 
 const router = useRouter()
 
 const steps = [
-  { id: 'business', label: 'Negocio' },
-  { id: 'whatsapp', label: 'WhatsApp' },
-  { id: 'catalog', label: 'Catálogo' },
-  { id: 'chatbot', label: 'Chatbot' },
-  { id: 'review', label: 'Activar' },
+  { id: 'business', label: 'Negocio', shortDesc: 'Info base' },
+  { id: 'whatsapp', label: 'WhatsApp', shortDesc: 'Conexión' },
+  { id: 'catalog', label: 'Catálogo', shortDesc: 'Productos' },
+  { id: 'chatbot', label: 'IA', shortDesc: 'Personalidad' },
+  { id: 'review', label: 'Activar', shortDesc: 'Final' },
 ]
 
 const currentStepIndex = ref(0)
 const formData = ref({
   rubro: '',
   description: '',
-  business_hours: {
-    weekdays: '',
-    saturday: '',
-    sunday: '',
-  },
+  business_hours: { weekdays: '', saturday: '', sunday: '' },
   faqs: [],
   custom_prompt: '',
   greeting_message: '',
@@ -358,20 +304,11 @@ const uploadError = ref(null)
 const termsAccepted = ref(false)
 const catalogItemsCount = ref(0)
 
-const whatsappStatusText = computed(() => {
-  const statusMap = {
-    disconnected: 'Desconectado',
-    connecting: 'Conectando...',
-    connected: 'Conectado',
-  }
-  return statusMap[whatsappStatus.value] || 'Desconectado'
-})
-
 const canActivate = computed(() => {
   return formData.value.rubro &&
          formData.value.description &&
          whatsappStatus.value === 'connected' &&
-         catalogItemsCount.value > 0 &&
+         catalogItemsCount.value >= 0 && // Even 0 is ok if they just start
          formData.value.custom_prompt
 })
 
@@ -387,75 +324,41 @@ async function loadOnboardingStatus() {
 
     if (responseData.onboarding_step) {
       const stepIndex = steps.findIndex(s => s.id === responseData.onboarding_step)
-      if (stepIndex !== -1) {
-        currentStepIndex.value = stepIndex
-      }
+      if (stepIndex !== -1) currentStepIndex.value = stepIndex
     }
 
-    // Cargar datos existentes
     const tenantResponse = await axios.get('/tenant')
-    const tenantData = tenantResponse.data
+    const td = tenantResponse.data
 
-    if (tenantData.rubro) formData.value.rubro = tenantData.rubro
-    if (tenantData.description) formData.value.description = tenantData.description
-    if (tenantData.business_hours) {
-      formData.value.business_hours = {
-        weekdays: tenantData.business_hours.weekdays || '',
-        saturday: tenantData.business_hours.saturday || '',
-        sunday: tenantData.business_hours.sunday || '',
-      }
-    }
-    if (tenantData.faqs) formData.value.faqs = tenantData.faqs
-    if (tenantData.custom_prompt) formData.value.custom_prompt = tenantData.custom_prompt
-    if (tenantData.whatsapp_status) whatsappStatus.value = tenantData.whatsapp_status
+    formData.value.rubro = td.rubro || ''
+    formData.value.description = td.description || ''
+    formData.value.business_hours = td.business_hours || { weekdays: '', saturday: '', sunday: '' }
+    formData.value.custom_prompt = td.custom_prompt || ''
+    whatsappStatus.value = td.whatsapp_status || 'disconnected'
   } catch (error) {
-    console.error('Error loading onboarding status:', error)
+    console.error('Error loading onboarding:', error)
   }
 }
 
 async function loadQRCode() {
   try {
-    // Primero verificar si hay instancia y su estado
     const statusResponse = await axios.get('/whatsapp/status')
-    const currentStatus = statusResponse.data.status
-    
-    if (currentStatus === 'not_configured' || currentStatus === 'disconnected') {
-      // Crear instancia primero
+    if (statusResponse.data.status === 'disconnected') {
       await axios.post('/whatsapp/connect')
     }
     
-    // Ahora obtener el QR
     const { data } = await axios.get('/whatsapp/qr')
-    
     if (data.qr_code) {
-      // Puede ser base64 (data:image/png;base64,...) o un código de texto
       if (data.qr_code.startsWith('data:')) {
-        qrCode.value = data.qr_code // Ya es una imagen base64
+        qrCode.value = data.qr_code
       } else {
-        // Generar imagen QR desde el código de texto
-        try {
-          qrCode.value = await QRCode.toDataURL(data.qr_code, {
-            width: 280,
-            margin: 2,
-            color: {
-              dark: '#000000',
-              light: '#FFFFFF'
-            }
-          })
-        } catch (e) {
-          console.error('Error generating QR:', e)
-          qrCode.value = data.qr_code // Fallback to text
-        }
+        qrCode.value = await QRCode.toDataURL(data.qr_code, { width: 400, margin: 2 })
       }
-    } else if (data.status === 'connecting') {
-      qrCode.value = null // Se muestra el spinner
     }
-
-    // Polling para verificar estado
-    setInterval(checkWhatsAppStatus, 5000)
+    
+    setInterval(checkWhatsAppStatus, 8000)
   } catch (error) {
-    console.error('Error loading QR code:', error)
-    qrCode.value = null
+    console.error('Error loading QR:', error)
   }
 }
 
@@ -463,21 +366,12 @@ async function checkWhatsAppStatus() {
   try {
     const { data } = await axios.get('/whatsapp/status')
     whatsappStatus.value = data.status || 'disconnected'
-
-    if (whatsappStatus.value === 'connected') {
-      await saveOnboardingStep()
+    if (whatsappStatus.value === 'connected' && currentStepIndex.value === 1) {
+      // Auto move if we are in QR step
     }
   } catch (error) {
-    console.error('Error checking WhatsApp status:', error)
+    console.error('Error status check:', error)
   }
-}
-
-function addFaq() {
-  formData.value.faqs.push({ question: '', answer: '' })
-}
-
-function removeFaq(index) {
-  formData.value.faqs.splice(index, 1)
 }
 
 function downloadTemplate(type) {
@@ -494,679 +388,381 @@ function handleDrop(event) {
 }
 
 function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+  return (bytes / 1024).toFixed(1) + ' KB'
 }
 
 async function uploadCatalog() {
   if (!selectedFile.value) return
-
   isUploading.value = true
   uploadError.value = null
-  uploadProgress.value = 0
 
-  const formDataUpload = new FormData()
-  formDataUpload.append('file', selectedFile.value)
-  formDataUpload.append('type', 'both')
-  formDataUpload.append('name', 'Mi Catálogo')
+  const fd = new FormData()
+  fd.append('file', selectedFile.value)
+  fd.append('type', 'both')
 
   try {
-    const { data } = await axios.post('/catalog/upload', formDataUpload, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      onUploadProgress: (progressEvent) => {
-        uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-      }
+    const { data } = await axios.post('/catalog/upload', fd, {
+      onUploadProgress: (e) => uploadProgress.value = Math.round((e.loaded * 100) / e.total)
     })
-
     if (data.success) {
-      catalogItemsCount.value = data.data.total_items || 0
-      selectedFile.value = null
+      catalogItemsCount.value = data.data.total_items
       await nextStep()
     } else {
-      uploadError.value = data.message || 'Error al subir el catálogo'
+      uploadError.value = data.message
     }
-  } catch (error) {
-    uploadError.value = error.response?.data?.message || 'Error al subir el catálogo'
+  } catch (e) {
+    uploadError.value = 'Error al subir catálogo.'
   } finally {
     isUploading.value = false
   }
 }
 
 async function nextStep() {
-  if (currentStepIndex.value === 0) {
-    await saveOnboardingStep()
-  } else if (currentStepIndex.value === 2) {
-    // El catálogo ya se subió, solo avanzamos
-    await saveOnboardingStep()
-  } else if (currentStepIndex.value === 3) {
-    await saveOnboardingStep()
-  }
-
+  await saveOnboardingStep()
   if (currentStepIndex.value < steps.length - 1) {
     currentStepIndex.value++
   }
 }
 
 function prevStep() {
-  if (currentStepIndex.value > 0) {
-    currentStepIndex.value--
-  }
+  if (currentStepIndex.value > 0) currentStepIndex.value--
 }
 
 async function saveOnboardingStep() {
   try {
-    const currentStepId = steps[currentStepIndex.value].id
-
-    const payload = {
-      onboarding_step: currentStepId,
+    const p = {
+      onboarding_step: steps[currentStepIndex.value].id,
+      rubro: formData.value.rubro,
+      description: formData.value.description,
+      custom_prompt: formData.value.custom_prompt,
+      business_hours: formData.value.business_hours,
     }
-
-    // Incluir datos del paso actual
-    if (currentStepIndex.value === 0) {
-      payload.rubro = formData.value.rubro
-      payload.description = formData.value.description
-      payload.business_hours = formData.value.business_hours
-      payload.faqs = formData.value.faqs
-    } else if (currentStepIndex.value === 3) {
-      payload.custom_prompt = formData.value.custom_prompt
-    }
-
-    await axios.put('/tenant/onboarding', payload)
+    await axios.put('/tenant/onboarding', p)
   } catch (error) {
-    console.error('Error saving onboarding step:', error)
+    console.error('Error saving step:', error)
   }
 }
 
 async function activateAccount() {
   try {
     await axios.put('/tenant/onboarding', {
+      ...formData.value,
       onboarding_step: 'review',
       onboarding_completed: true,
-      rubro: formData.value.rubro,
-      description: formData.value.description,
-      business_hours: formData.value.business_hours,
-      faqs: formData.value.faqs,
-      custom_prompt: formData.value.custom_prompt,
     })
-
-    // Redirigir al dashboard
     router.push('/')
   } catch (error) {
-    console.error('Error activating account:', error)
-    alert('Hubo un error al activar tu cuenta. Por favor intentá de nuevo.')
+    alert('Error al activar. Intentá de nuevo.')
   }
 }
 </script>
 
 <style scoped>
-.onboarding-wizard {
+.onboarding-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 2rem;
-}
-
-.wizard-container {
-  max-width: 800px;
-  margin: 0 auto;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-}
-
-.wizard-header {
-  padding: 2rem;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.wizard-header h1 {
-  margin: 0 0 1.5rem 0;
-  color: #1e293b;
-  font-size: 1.5rem;
-}
-
-.progress-bar {
-  display: flex;
-  justify-content: space-between;
-  position: relative;
-}
-
-.progress-bar::before {
-  content: '';
-  position: absolute;
-  top: 20px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #e2e8f0;
-  z-index: 0;
-}
-
-.progress-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-  z-index: 1;
-  flex: 1;
-}
-
-.step-number {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #e2e8f0;
-  color: #64748b;
+  background: var(--color-surface);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  transition: all 0.3s ease;
+  padding: 40px;
 }
 
-.progress-step.completed .step-number {
-  background: #10b981;
+.onboarding-card {
+  width: 100%;
+  max-width: 1000px;
+  min-height: 640px;
+  background: white;
+  border-radius: 24px;
+  display: flex;
+  overflow: hidden;
+  box-shadow: 0 40px 100px rgba(15, 23, 42, 0.1);
+  border: 1px solid var(--color-border);
+}
+
+/* Sidebar */
+.onboarding-sidebar {
+  width: 280px;
+  background: var(--color-dark);
   color: white;
-}
-
-.progress-step.active .step-number {
-  background: #667eea;
-  color: white;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
-}
-
-.step-label {
-  font-size: 0.75rem;
-  color: #64748b;
-  text-align: center;
-}
-
-.wizard-content {
-  padding: 2rem;
-}
-
-.step-content h2 {
-  margin: 0 0 0.5rem 0;
-  color: #1e293b;
-}
-
-.step-description {
-  color: #64748b;
-  margin-bottom: 2rem;
-}
-
-.wizard-form {
+  padding: 40px;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+}
+
+.onboarding-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 64px;
+}
+
+.brand-logo {
+  height: 32px;
+  object-fit: contain;
+}
+
+.steps-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.nav-step {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  opacity: 0.4;
+  transition: all 0.3s;
+}
+
+.nav-step.active, .nav-step.completed { opacity: 1; }
+
+.step-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.nav-step.completed .step-icon {
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.nav-step.active .step-icon {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.step-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.step-label { font-size: 14px; font-weight: 700; }
+.step-desc { font-size: 11px; opacity: 0.6; }
+
+.sidebar-footer {
+  margin-top: 40px;
+  font-size: 12px;
+  color: #64748B;
+}
+
+/* Main Content */
+.onboarding-main {
+  flex: 1;
+  padding: 64px;
+  background: white;
+  position: relative;
+}
+
+.step-header {
+  margin-bottom: 40px;
+}
+
+.step-header h2 {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-dark);
+  margin-bottom: 8px;
+}
+
+.step-header p {
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+
+/* Forms */
+.onboarding-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .form-group label {
-  font-weight: 500;
-  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-dark);
 }
 
-.form-group input,
-.form-group textarea {
-  padding: 0.75rem 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.2s;
+.form-group input, .form-group textarea {
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  font-size: 15px;
+  transition: all var(--transition-fast);
+  background: var(--color-surface);
 }
 
-.form-group input:focus,
-.form-group textarea:focus {
+.form-group input:focus, .form-group textarea:focus {
   outline: none;
-  border-color: #667eea;
-}
-
-.form-hint {
-  font-size: 0.875rem;
-  color: #64748b;
-}
-
-.hours-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.day-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.day-label {
-  min-width: 120px;
-  font-size: 0.875rem;
-  color: #64748b;
-}
-
-.day-row input {
-  flex: 1;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-}
-
-.faqs-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.faq-item {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.faq-question {
-  flex: 1;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-}
-
-.faq-answer {
-  flex: 2;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-}
-
-.btn-remove {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: #fee2e2;
-  color: #dc2626;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 1.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-add-faq {
-  padding: 0.5rem 1rem;
-  border: 2px dashed #e2e8f0;
-  background: #f8fafc;
-  color: #667eea;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.btn-add-faq:hover {
-  border-color: #667eea;
-  background: #f1f5f9;
-}
-
-.qr-section {
-  display: flex;
-  justify-content: center;
-  padding: 2rem 0;
-}
-
-.qr-container {
-  text-align: center;
-}
-
-.qr-image-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 1rem;
-}
-
-.qr-image {
-  width: 256px;
-  height: 256px;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-}
-
-.qr-code-text {
-  background: #f8fafc;
-  border: 2px dashed #e2e8f0;
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1rem;
-}
-
-.qr-text-label {
-  font-size: 0.875rem;
-  color: #64748b;
-  margin-bottom: 0.75rem;
-}
-
-.qr-text-code {
-  font-family: monospace;
-  font-size: 0.75rem;
-  word-break: break-all;
   background: white;
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px var(--color-primary-10);
 }
 
-.qr-instructions {
-  font-size: 0.875rem;
-  color: #64748b;
-  line-height: 1.6;
+.horizontal-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 
-.qr-loading {
-  text-align: center;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #e2e8f0;
-  border-top-color: #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.connection-status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  margin-bottom: 2rem;
-  font-weight: 500;
-}
-
-.connection-status.connected {
-  background: #dcfce7;
-  color: #008a45;
-}
-
-.connection-status.disconnected,
-.connection-status.connecting {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.upload-options {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-}
-
-.upload-area {
-  border: 2px dashed #e2e8f0;
-  border-radius: 12px;
-  padding: 2rem;
-  text-align: center;
-  transition: all 0.2s;
-  background: #f8fafc;
-}
-
-.upload-area.dragging {
-  border-color: #667eea;
-  background: #f1f5f9;
-}
-
-.file-input {
-  display: none;
-}
-
-.upload-placeholder {
-  color: #64748b;
-}
-
-.upload-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 1rem;
-}
-
-.upload-hint {
-  color: #94a3b8;
-  margin: 0.5rem 0;
-}
-
-.btn-select {
-  padding: 0.75rem 1.5rem;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  margin-top: 0.5rem;
-}
-
-.upload-max {
-  font-size: 0.75rem;
-  color: #94a3b8;
-  margin-top: 0.5rem;
-}
-
-.file-selected {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.file-icon {
-  font-size: 2rem;
-}
-
-.file-name {
-  flex: 1;
-  font-weight: 500;
-  color: #1e293b;
-}
-
-.file-size {
-  color: #64748b;
-  font-size: 0.875rem;
-}
-
-.btn-remove-file {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: #fee2e2;
-  color: #dc2626;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 1.25rem;
-}
-
-.upload-progress {
-  position: relative;
-  height: 32px;
-  background: #e2e8f0;
-  border-radius: 8px;
-  overflow: hidden;
-  margin-top: 1rem;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #667eea, #764ba2);
-  transition: width 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 600;
-}
-
-.upload-error {
-  background: #fee2e2;
-  color: #dc2626;
-  padding: 1rem;
-  border-radius: 8px;
-  margin-top: 1rem;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid #e2e8f0;
-}
-
-.btn-primary {
-  flex: 1;
-  padding: 1rem 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  flex: 1;
-  padding: 1rem 2rem;
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  background: #e2e8f0;
-}
-
-.btn-outline {
-  padding: 0.75rem 1rem;
-  background: transparent;
-  color: #667eea;
-  border: 1px solid #667eea;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.btn-outline:hover {
-  background: #f1f5f9;
-}
-
-.review-section {
+.sub-group {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 4px;
 }
 
-.review-card {
-  background: #f8fafc;
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+.input-label { font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; }
+
+/* QR Section */
+.qr-preview-area {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 32px;
 }
 
-.review-card h3 {
-  margin: 0 0 0.75rem 0;
-  font-size: 1rem;
-  color: #1e293b;
+.qr-box {
+  text-align: center;
 }
 
-.review-card ul {
-  margin: 0;
-  padding-left: 1.5rem;
-  color: #475569;
-}
-
-.review-card li {
-  margin-bottom: 0.5rem;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
+.qr-border {
+  padding: 24px;
+  background: white;
+  border: 1px solid var(--color-border);
   border-radius: 20px;
-  font-size: 0.875rem;
-  font-weight: 500;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 24px;
 }
 
-.status-badge.connected {
-  background: #dcfce7;
-  color: #008a45;
-}
+.qr-image { width: 240px; height: 240px; }
 
-.status-badge.disconnected {
-  background: #fee2e2;
-  color: #dc2626;
-}
+.qr-steps { font-size: 13px; color: var(--color-text-muted); line-height: 1.6; }
 
-.activation-section {
-  background: #fef3c7;
-  padding: 1rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-}
-
-.checkbox-label {
+.status-indicator-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  font-weight: 500;
-  color: #92400e;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--color-surface);
+  margin-bottom: 32px;
 }
 
-.checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+.status-indicator-bar.connected { background: var(--color-success-10); color: var(--color-success); }
+
+.dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #64748B;
+}
+.connected .dot { background: var(--color-success); animation: pulse 2s infinite; }
+
+/* Upload Area */
+.dropzone-area {
+  border: 2px dashed var(--color-border);
+  border-radius: 20px;
+  padding: 64px 32px;
+  background: var(--color-surface);
+  text-align: center;
   cursor: pointer;
+  transition: all 0.3s;
 }
 
-.btn-activate {
-  font-size: 1.125rem;
+.dropzone-area:hover, .dropzone-area.dragging {
+  border-color: var(--color-primary);
+  background: white;
 }
+
+.drop-icon { font-size: 40px; margin-bottom: 16px; }
+
+.dropzone-file {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+}
+
+.file-info { flex: 1; }
+.file-name { font-weight: 700; color: var(--color-dark); margin-bottom: 2px; }
+.file-meta { font-size: 12px; color: var(--color-text-muted); }
+
+/* Review Grid */
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.review-item {
+  background: var(--color-surface);
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-icon { font-size: 24px; }
+.review-data strong { font-size: 12px; text-transform: uppercase; color: var(--color-text-muted); display: block; }
+.review-data p { font-size: 14px; font-weight: 600; color: var(--color-dark); margin-top: 4px; }
+
+/* Buttons */
+.step-footer {
+  margin-top: 40px;
+  display: flex;
+}
+
+.step-footer.split { justify-content: space-between; gap: 16px; }
+
+.btn {
+  padding: 12px 32px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.btn-primary { background: var(--color-primary); color: white; }
+.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-outline { background: white; border-color: var(--color-border); color: var(--color-dark); }
+.btn-activate { width: 100%; padding: 18px; font-size: 16px; }
+
+.btn-primary-gradient {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+/* Animations */
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.4s ease; }
+.fade-slide-enter-from { opacity: 0; transform: translateX(20px); }
+.fade-slide-leave-to { opacity: 0; transform: translateX(-20px); }
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.hidden-input { display: none; }
 </style>

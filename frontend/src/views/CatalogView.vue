@@ -2,17 +2,18 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 
-const step = ref('select') // select, upload, viewing
+const step = ref('loading') // loading, select, upload, viewing
 const catalogType = ref(null)
 const catalog = ref(null)
 const items = ref([])
-const loading = ref(false)
+const loading = ref(true)
 const uploading = ref(false)
 const error = ref('')
 const file = ref(null)
 const showNewItemForm = ref(false)
-const newItem = ref({ name: '', price: null })
+const newItem = ref({ name: '', price: null, description: '' })
 const creatingItem = ref(false)
+const showDeleteConfirm = ref(false)
 
 const hasCatalog = computed(() => catalog.value && catalog.value.status === 'active')
 
@@ -51,13 +52,16 @@ async function loadItems() {
       }))
     }
   } catch (e) {
-    console.error(e)
+    console.error('Error loading items:', e)
   }
 }
 
 async function saveEdit(item) {
   try {
-    const { data } = await axios.put(`/catalog/items/${item.id}`, { name: item.editName, price: item.editPrice })
+    const { data } = await axios.put(`/catalog/items/${item.id}`, { 
+      name: item.editName, 
+      price: item.editPrice 
+    })
     if (data.success) {
       item.name = item.editName
       item.price = item.editPrice
@@ -151,13 +155,12 @@ async function uploadFile() {
 }
 
 async function deleteCatalog() {
-  if (!confirm('¿Estás seguro de eliminar el catálogo?')) return
-
   try {
     await axios.delete(`/catalog/${catalog.value.id}`)
     catalog.value = null
     items.value = []
     step.value = 'select'
+    showDeleteConfirm.value = false
   } catch (e) {
     error.value = 'Error al eliminar catálogo'
   }
@@ -175,9 +178,8 @@ async function createItem() {
         editName: data.data.name,
         editPrice: data.data.price
       })
-      newItem.value = { name: '', price: null }
+      newItem.value = { name: '', price: null, description: '' }
       showNewItemForm.value = false
-      // Update local count
       if (catalog.value) catalog.value.total_items++
     }
   } catch (e) {
@@ -186,296 +188,339 @@ async function createItem() {
     creatingItem.value = false
   }
 }
-
-function reset() {
-  step.value = 'select'
-  catalogType.value = null
-  catalog.value = null
-  items.value = []
-  file.value = null
-  error.value = ''
-}
 </script>
 
 <template>
   <div class="catalog-view">
-    <header class="header">
-      <h1>Mi Catálogo</h1>
-      <button v-if="hasCatalog" @click="reset" class="btn-secondary">
-        Nuevo Catálogo
-      </button>
+    <header class="view-header">
+      <h1 class="view-title">Catálogo</h1>
+      <p v-if="step === 'viewing'" class="view-subtitle">Gestioná tus productos y servicios</p>
     </header>
 
-    <div v-if="loading" class="loading">Cargando...</div>
-
-    <!-- Step 1: Select Type -->
-    <div v-else-if="step === 'select'" class="type-selector">
-      <h2>¿Qué tipo de negocio tienes?</h2>
-      <p class="subtitle">Esto determinará cómo el chatbot responderá a tus clientes</p>
-
-      <div class="options">
-        <button class="option-card" @click="selectType('products')">
-          <div class="icon">📦</div>
-          <h3>Productos Físicos</h3>
-          <p>Vendes ropa, electrónica, alimentos, etc.</p>
-        </button>
-
-        <button class="option-card" @click="selectType('services')">
-          <div class="icon">🛠️</div>
-          <h3>Servicios</h3>
-          <p>Ofreces clases, consultorías, reparaciones, etc.</p>
-        </button>
-
-        <button class="option-card" @click="selectType('both')">
-          <div class="icon">🏪</div>
-          <h3>Ambos</h3>
-          <p>Vendes productos Y servicios</p>
-        </button>
+    <!-- Loading State -->
+    <div v-if="loading" class="loading-state">
+      <div class="shimmer-card"></div>
+      <div class="grid-shimmer">
+        <div class="shimmer-item" v-for="n in 4" :key="n"></div>
       </div>
     </div>
 
-    <!-- Step 2: Upload -->
-    <div v-else-if="step === 'upload'" class="upload-section">
-      <button @click="step = 'select'" class="back-link">← Volver</button>
-      
-      <h2>Sube tu Catálogo</h2>
-      <p class="type-badge">
-        Tipo: 
-        <span v-if="catalogType === 'products'">Productos Físicos</span>
-        <span v-else-if="catalogType === 'services'">Servicios</span>
-        <span v-else>Ambos</span>
-      </p>
-
-      <div class="template-download">
-        <button @click="downloadTemplate" class="btn-outline">
-          📥 Descargar Plantilla
-        </button>
-      </div>
-
-      <div 
-        class="upload-area"
-        @drop="handleDrop"
-        @dragover.prevent
-        @dragenter.prevent
-      >
-        <input 
-          type="file"
-          accept=".csv,.json"
-          @change="handleFileSelect"
-          class="file-input"
-        />
+    <!-- Step: Select Type -->
+    <div v-else-if="step === 'select'" class="selection-step">
+      <div class="step-card">
+        <h2>¿Qué tipo de negocio tenés?</h2>
+        <p>Esto ayuda a NETO AI a entender cómo presentar tus productos.</p>
         
-        <div v-if="!file" class="placeholder">
-          <div class="upload-icon">📁</div>
-          <p>Arrastra tu archivo aquí o haz click para seleccionar</p>
-          <span>CSV o JSON (máx 5MB)</span>
-        </div>
-        
-        <div v-else class="file-preview">
-          <div class="file-icon">✅</div>
-          <p class="file-name">{{ file.name }}</p>
-          <p class="file-size">{{ (file.size / 1024).toFixed(2) }} KB</p>
+        <div class="type-grid">
+          <button class="type-card" @click="selectType('products')">
+            <div class="card-icon">📦</div>
+            <h3>Productos</h3>
+            <p>Venta de artículos físicos (ropa, comida, etc.)</p>
+          </button>
+          
+          <button class="type-card" @click="selectType('services')">
+            <div class="card-icon">🛠️</div>
+            <h3>Servicios</h3>
+            <p>Turnos, clases, consultoría o mantenimiento.</p>
+          </button>
+          
+          <button class="type-card" @click="selectType('both')">
+            <div class="card-icon">🏪</div>
+            <h3>Ambos</h3>
+            <p>Si ofrecés tanto productos como servicios.</p>
+          </button>
         </div>
       </div>
-
-      <p v-if="error" class="error">{{ error }}</p>
-
-      <button 
-        @click="uploadFile" 
-        class="btn-primary"
-        :disabled="!file || uploading"
-      >
-        {{ uploading ? 'Procesando...' : 'Subir Catálogo' }}
-      </button>
     </div>
 
-    <!-- Step 3: Viewing -->
-    <div v-else-if="step === 'viewing'" class="catalog-viewing">
-      <div class="status-card">
-        <div class="status-info">
-          <span class="status-label">Estado:</span>
-          <span class="status-value" :class="catalog.status">{{ catalog.status }}</span>
-        </div>
-        <div class="status-info">
-          <span class="status-label">Tipo:</span>
-          <span class="status-value">
-            {{ catalog.type === 'products' ? 'Productos' : catalog.type === 'services' ? 'Servicios' : 'Ambos' }}
-          </span>
-        </div>
-        <div class="status-info">
-          <span class="status-label">Items:</span>
-          <span class="status-value">{{ catalog.total_items }}</span>
-        </div>
-        <div class="status-info">
-          <span class="status-label">Última actualización:</span>
-          <span class="status-value">{{ new Date(catalog.last_sync).toLocaleDateString() }}</span>
-        </div>
-      </div>
+    <!-- Step: Upload -->
+    <div v-else-if="step === 'upload'" class="upload-step">
+      <div class="step-card">
+        <button @click="step = 'select'" class="btn-back">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Volver
+        </button>
+        
+        <h2>Subí tu catálogo</h2>
+        <p>Descargá nuestra plantilla y subí el archivo completo.</p>
 
-      <div v-if="error" class="error-banner">{{ error }}</div>
-
-      <div class="items-section">
-        <div class="items-header">
-          <h3>Productos/Servicios</h3>
-          <button @click="showNewItemForm = !showNewItemForm" class="btn-primary btn-small">
-            {{ showNewItemForm ? 'Cancelar' : '+ Agregar Producto' }}
+        <div class="template-box">
+          <button @click="downloadTemplate" class="btn btn-outline btn-full">
+            Descargar Plantilla ({{ catalogType }})
           </button>
         </div>
 
+        <div 
+          class="dropzone"
+          :class="{ 'has-file': file }"
+          @drop="handleDrop"
+          @dragover.prevent
+          @dragenter.prevent
+        >
+          <input type="file" @change="handleFileSelect" class="file-input" />
+          <div v-if="!file" class="dropzone-content">
+            <div class="drop-icon">📁</div>
+            <p>Arrastrá tu archivo acá o hacé click</p>
+            <span>Formatos aceptados: CSV, JSON</span>
+          </div>
+          <div v-else class="file-selected">
+            <div class="file-icon">✅</div>
+            <p class="file-name">{{ file.name }}</p>
+            <button @click.stop="file = null" class="btn-remove">Quitar archivo</button>
+          </div>
+        </div>
+
+        <div v-if="error" class="error-msg">{{ error }}</div>
+
+        <button 
+          @click="uploadFile" 
+          class="btn btn-primary btn-full"
+          :disabled="!file || uploading"
+        >
+          {{ uploading ? 'Procesando...' : 'Comenzar importación' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Viewing -->
+    <div v-else-if="step === 'viewing'" class="viewing-step">
+      <!-- Info Card -->
+      <div class="catalog-summary">
+        <div class="summary-item">
+          <span class="summary-label">Estado</span>
+          <span class="status-badge" :class="catalog.status">{{ catalog.status }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Tipo</span>
+          <span class="summary-value">{{ catalog.type }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Items</span>
+          <span class="summary-value">{{ catalog.total_items }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Sincronización</span>
+          <span class="summary-value">{{ new Date(catalog.last_sync).toLocaleDateString() }}</span>
+        </div>
+      </div>
+
+      <!-- Action Bar -->
+      <div class="items-bar">
+        <h2 class="items-title">Lista de productos</h2>
+        <button @click="showNewItemForm = !showNewItemForm" class="btn btn-primary btn-sm">
+          {{ showNewItemForm ? 'Cancelar' : '+ Agregar Nuevo' }}
+        </button>
+      </div>
+
+      <!-- New Item Card -->
+      <transition name="slide-up">
         <div v-if="showNewItemForm" class="new-item-card">
-          <h4>Nuevo Producto</h4>
-          <div class="form-row">
-            <input v-model="newItem.name" placeholder="Nombre (ej: Medialunas)" />
-            <input v-model="newItem.price" type="number" placeholder="Precio ($)" />
-            <button @click="createItem" class="btn-primary" :disabled="creatingItem || !newItem.name">
-              {{ creatingItem ? '...' : 'Agregar' }}
+          <h3>Nuevo Producto</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nombre</label>
+              <input v-model="newItem.name" placeholder="Ej: Pizza Napolitana" />
+            </div>
+            <div class="form-group">
+              <label>Precio ($)</label>
+              <input v-model="newItem.price" type="number" placeholder="0.00" />
+            </div>
+            <div class="form-group full-width">
+              <label>Descripción</label>
+              <textarea v-model="newItem.description" placeholder="Ingredientes, talle o detalles..."></textarea>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button @click="createItem" class="btn btn-primary" :disabled="creatingItem || !newItem.name">
+              {{ creatingItem ? 'Agregando...' : 'Guardar Producto' }}
             </button>
           </div>
         </div>
-        
-        <div v-if="items.length === 0 && !showNewItemForm" class="empty-state">
-          <p>No hay items en el catálogo</p>
-        </div>
+      </transition>
 
-        <div v-else class="items-grid">
-          <div v-for="item in items" :key="item.id" class="item-card">
-            
-            <div v-if="!item.editing">
-              <h4>{{ item.name }}</h4>
-              <p v-if="item.description">{{ item.description }}</p>
-              <div class="item-details" style="align-items: center">
-                <span v-if="item.price !== null" class="price">${{ item.price }}</span>
-                <span v-if="item.quantity !== null" class="stock">Stock: {{ item.quantity }}</span>
-                <span v-if="item.duration_minutes" class="duration">{{ item.duration_minutes }} min</span>
-                <button @click="item.editing = true" class="btn-outline btn-small" style="margin-left: auto; padding: 0.25rem 0.5rem; font-size: 0.75rem;">Editar</button>
-              </div>
+      <!-- Items Grid -->
+      <div v-if="items.length > 0" class="products-grid">
+        <div v-for="item in items" :key="item.id" class="product-card">
+          <div v-if="!item.editing" class="product-view">
+            <div class="product-header">
+              <h4 class="product-name">{{ item.name }}</h4>
+              <button @click="item.editing = true" class="btn-edit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
             </div>
-
-            <div v-else class="item-edit-form">
-                <input v-model="item.editName" placeholder="Nombre" style="width: 100%; margin-bottom: 0.5rem; padding: 0.3rem;" />
-                <input type="number" v-model="item.editPrice" placeholder="Precio ($)" style="width: 100%; margin-bottom: 0.5rem; padding: 0.3rem;" />
-                <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
-                  <button @click="saveEdit(item)" class="btn-primary" style="padding: 0.4rem; font-size: 0.8rem;">Guardar</button>
-                  <button @click="item.editing = false" class="btn-secondary" style="padding: 0.4rem; font-size: 0.8rem;">Cancelar</button>
-                </div>
+            <p v-if="item.description" class="product-desc">{{ item.description }}</p>
+            <div class="product-footer">
+              <span class="product-price">${{ parseFloat(item.price).toLocaleString('es-AR') }}</span>
+              <span v-if="item.duration_minutes" class="product-meta">{{ item.duration_minutes }} min</span>
+              <span v-if="item.quantity !== null" class="product-meta">Stock: {{ item.quantity }}</span>
             </div>
-
+          </div>
+          
+          <div v-else class="product-edit">
+            <div class="form-group">
+              <label>Nombre</label>
+              <input v-model="item.editName" />
+            </div>
+            <div class="form-group">
+              <label>Precio</label>
+              <input type="number" v-model="item.editPrice" />
+            </div>
+            <div class="edit-actions">
+              <button @click="saveEdit(item)" class="btn btn-primary btn-xs">Guardar</button>
+              <button @click="item.editing = false" class="btn btn-outline btn-xs">Cancelar</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="actions">
-        <button @click="deleteCatalog" class="btn-danger">Eliminar Catálogo</button>
+      <!-- Empty Grid -->
+      <div v-else-if="!showNewItemForm" class="empty-items">
+        <div class="empty-icon">📦</div>
+        <p>No hay items en tu catálogo</p>
+      </div>
+
+      <!-- Delete Section -->
+      <div class="delete-zone">
+        <button @click="showDeleteConfirm = true" class="btn-delete-catalog">
+          Eliminar todo el catálogo
+        </button>
       </div>
     </div>
+
+    <!-- Delete Modal -->
+    <transition name="fade">
+      <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
+        <div class="modal-card">
+          <h2>¿Eliminar catálogo?</h2>
+          <p>Esta acción borrará todos tus productos y NETO AI dejará de conocer tus precios. No se puede deshacer.</p>
+          <div class="modal-actions">
+            <button @click="showDeleteConfirm = false" class="btn btn-outline">Cancelar</button>
+            <button @click="deleteCatalog" class="btn btn-danger">Sí, eliminar catálogo</button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <style scoped>
 .catalog-view {
-  padding: 2rem;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.header h1 {
-  font-size: 1.5rem;
-  color: var(--color-dark);
-}
-
-.type-selector {
-  text-align: center;
-}
-
-.type-selector h2 {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.subtitle {
-  color: var(--color-text-muted);
-  margin-bottom: 2rem;
-}
-
-.options {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  max-width: 800px;
+  padding: 32px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
-.option-card {
-  background: var(--color-white);
-  border: 2px solid var(--color-border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  cursor: pointer;
-  transition: all 0.2s;
+.view-header {
+  margin-bottom: 32px;
 }
 
-.option-card:hover {
+.view-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-dark);
+  margin-bottom: 4px;
+}
+
+.view-subtitle {
+  color: var(--color-text-muted);
+  font-size: 15px;
+}
+
+/* Steps Cards */
+.step-card {
+  background: white;
+  padding: 40px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.step-card h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.step-card p {
+  color: var(--color-text-muted);
+  margin-bottom: 32px;
+}
+
+/* Selection Step */
+.type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.type-card {
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 24px 16px;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.type-card:hover {
   border-color: var(--color-primary);
+  background: var(--color-primary-10);
   transform: translateY(-2px);
 }
 
-.option-card .icon {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
+.card-icon {
+  font-size: 32px;
+  margin-bottom: 16px;
 }
 
-.option-card h3 {
-  font-size: 1rem;
-  margin-bottom: 0.5rem;
+.type-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
-.option-card p {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
+.type-card p {
+  font-size: 13px;
+  margin-bottom: 0;
+  line-height: 1.4;
 }
 
-.upload-section {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.back-link {
+/* Upload Step */
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: none;
   border: none;
   color: var(--color-primary);
+  font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
-  margin-bottom: 1rem;
-  font-size: 0.875rem;
+  margin-bottom: 24px;
 }
 
-.upload-section h2 {
-  margin-bottom: 0.5rem;
+.template-box {
+  margin-bottom: 24px;
 }
 
-.type-badge {
-  background: var(--color-surface);
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  display: inline-block;
-  margin-bottom: 1.5rem;
-}
-
-.template-download {
-  margin-bottom: 1.5rem;
-}
-
-.upload-area {
+.dropzone {
   border: 2px dashed var(--color-border);
-  border-radius: 12px;
-  padding: 3rem;
-  text-align: center;
+  border-radius: var(--radius-md);
+  padding: 48px 24px;
   position: relative;
-  margin-bottom: 1.5rem;
+  margin-bottom: 24px;
+  transition: all var(--transition-fast);
+}
+
+.dropzone:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.dropzone.has-file {
+  border-color: var(--color-success);
+  background: var(--color-success-10);
 }
 
 .file-input {
@@ -485,225 +530,348 @@ function reset() {
   cursor: pointer;
 }
 
-.placeholder .upload-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+.drop-icon, .file-icon {
+  font-size: 40px;
+  margin-bottom: 16px;
 }
 
-.placeholder p {
+.dropzone-content span {
+  font-size: 12px;
   color: var(--color-text-muted);
 }
 
-.placeholder span {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-}
-
-.file-preview {
-  background: var(--color-surface);
-  padding: 1.5rem;
-  border-radius: 8px;
-}
-
-.file-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.file-name {
-  font-weight: 500;
-}
-
-.file-size {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-}
-
-.btn-primary {
-  width: 100%;
-  padding: 0.75rem;
-  background: var(--color-primary);
-  color: white;
+.btn-remove {
+  background: none;
   border: none;
-  border-radius: 6px;
-  font-weight: 500;
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  text-decoration: underline;
 }
 
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 0.5rem 1rem;
-  background: var(--color-surface);
+/* Viewing Step: Summary */
+.catalog-summary {
+  background: white;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.btn-outline {
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--color-primary);
-  color: var(--color-primary);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.btn-danger {
-  padding: 0.5rem 1rem;
-  background: #dc2626;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.error {
-  color: #dc2626;
-  font-size: 0.875rem;
-  margin-bottom: 1rem;
-}
-
-.status-card {
-  background: var(--color-white);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 1.5rem;
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 24px;
+  margin-bottom: 40px;
 }
 
-.status-info {
+.summary-item {
   display: flex;
   flex-direction: column;
 }
 
-.status-label {
-  font-size: 0.75rem;
+.summary-label {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
 }
 
-.status-value {
-  font-weight: 500;
+.summary-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-dark);
 }
 
-.status-value.active {
-  color: var(--color-success);
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-block;
+  width: fit-content;
 }
 
-.status-value.processing {
-  color: #f59e0b;
-}
+.status-badge.active { background: var(--color-success-10); color: var(--color-success); }
+.status-badge.processing { background: #FFF7ED; color: #EA580C; }
 
-.status-value.error {
-  color: #dc2626;
-}
-
-.items-section h3 {
-  margin: 0;
-}
-
-.items-header {
+/* Items Bar */
+.items-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 24px;
 }
 
-.btn-small {
-  width: auto;
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
+.items-title {
+  font-size: 18px;
+  font-weight: 600;
 }
 
+/* New Item Card */
 .new-item-card {
   background: white;
-  border: 2px solid var(--color-primary);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  margin-bottom: 32px;
+  box-shadow: 0 4px 12px rgba(0, 82, 204, 0.08);
 }
 
-.new-item-card h4 {
-  margin-bottom: 1rem;
+.new-item-card h3 {
+  font-size: 16px;
+  margin-bottom: 20px;
 }
 
-.form-row {
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.full-width { grid-column: span 2; }
+
+.form-group {
   display: flex;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
-.form-row input {
-  flex: 1;
-  padding: 0.75rem;
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.form-group input, .form-group textarea {
+  padding: 10px 12px;
   border: 1px solid var(--color-border);
   border-radius: 6px;
+  font-size: 14px;
 }
 
-.form-row button {
-  width: auto;
-  padding: 0 1.5rem;
+.form-group textarea {
+  min-height: 80px;
+  resize: vertical;
 }
 
-.items-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-
-.item-card {
-  background: var(--color-white);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 1rem;
-}
-
-.item-card h4 {
-  font-size: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.item-card p {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-  margin-bottom: 0.5rem;
-}
-
-.item-details {
+.form-actions {
   display: flex;
-  gap: 1rem;
-  font-size: 0.875rem;
+  justify-content: flex-end;
+  margin-top: 12px;
 }
 
-.price {
+/* Products Grid */
+.products-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .products-grid { grid-template-columns: 1fr; }
+}
+
+.product-card {
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: all var(--transition-fast);
+}
+
+.product-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.product-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.product-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-dark);
+}
+
+.btn-edit {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.btn-edit:hover { background: var(--color-surface); color: var(--color-primary); }
+
+.product-desc {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.product-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.product-price {
+  font-size: 16px;
+  font-weight: 700;
   color: var(--color-primary);
-  font-weight: 500;
 }
 
-.stock, .duration {
+.product-meta {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--color-text-muted);
+  background: var(--color-surface);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-.actions {
-  margin-top: 2rem;
+/* Edit State */
+.edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Danger Zone */
+.delete-zone {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
   text-align: center;
 }
 
-.loading {
-  text-align: center;
-  padding: 2rem;
-  color: var(--color-text-muted);
+.btn-delete-catalog {
+  background: none;
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.empty-state {
-  text-align: center;
-  padding: 2rem;
+.btn-delete-catalog:hover {
+  background: #FEF2F2;
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-card {
+  background: white;
+  width: 90%;
+  max-width: 400px;
+  padding: 32px;
+  border-radius: var(--radius-lg);
+}
+
+.modal-card h2 {
+  font-size: 20px;
+  margin-bottom: 12px;
+  color: var(--color-danger);
+}
+
+.modal-card p {
+  font-size: 14px;
   color: var(--color-text-muted);
+  margin-bottom: 24px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Buttons Helper */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.btn-full { width: 100%; }
+
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover { opacity: 0.9; transform: scale(0.98); }
+
+.btn-outline {
+  border-color: var(--color-border);
+  color: var(--color-dark);
+}
+
+.btn-danger {
+  background: var(--color-danger);
+  color: white;
+}
+
+.btn-xs { padding: 4px 8px; font-size: 12px; }
+
+/* Transitions */
+.slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
+.slide-up-enter-from { opacity: 0; transform: translateY(10px); }
+.slide-up-leave-to { opacity: 0; transform: translateY(10px); }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.shimmer-card {
+  height: 80px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #f8fafc 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.grid-shimmer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.shimmer-item {
+  height: 120px;
+  background: var(--color-surface);
+  border-radius: 8px;
 }
 </style>

@@ -13,7 +13,8 @@ use App\Http\Controllers\Api\SalesController;
 use App\Http\Controllers\Api\BillingController;
 
 // Webhook público para Evolution API (sin autenticación)
-Route::any('/webhooks/whatsapp', [WebhookController::class, 'whatsapp']);
+Route::any('/webhooks/whatsapp', [WebhookController::class, 'whatsapp'])
+    ->middleware('throttle:60,1');
 
 // Webhook de MercadoPago
 Route::post('/billing/webhook', [BillingController::class, 'webhook']);
@@ -47,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/conversations/{contact}/messages', [ConversationController::class, 'messages']);
 
     Route::get('/dashboard/recent-conversations', [DashboardController::class, 'recentConversations']);
+    Route::get('/dashboard/metrics', [DashboardController::class, 'metrics']);
 
     Route::get('/whatsapp/status', [WhatsAppController::class, 'status']);
     Route::post('/whatsapp/connect', [WhatsAppController::class, 'connect']);
