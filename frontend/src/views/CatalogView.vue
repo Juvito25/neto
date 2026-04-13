@@ -10,6 +10,9 @@ const loading = ref(false)
 const uploading = ref(false)
 const error = ref('')
 const file = ref(null)
+const showNewItemForm = ref(false)
+const newItem = ref({ name: '', price: null })
+const creatingItem = ref(false)
 
 const hasCatalog = computed(() => catalog.value && catalog.value.status === 'active')
 
@@ -160,6 +163,30 @@ async function deleteCatalog() {
   }
 }
 
+async function createItem() {
+  if (!newItem.value.name) return
+  creatingItem.value = true
+  try {
+    const { data } = await axios.post('/catalog/items', newItem.value)
+    if (data.success) {
+      items.value.push({
+        ...data.data,
+        editing: false,
+        editName: data.data.name,
+        editPrice: data.data.price
+      })
+      newItem.value = { name: '', price: null }
+      showNewItemForm.value = false
+      // Update local count
+      if (catalog.value) catalog.value.total_items++
+    }
+  } catch (e) {
+    alert('Error al crear el producto')
+  } finally {
+    creatingItem.value = false
+  }
+}
+
 function reset() {
   step.value = 'select'
   catalogType.value = null
@@ -288,9 +315,25 @@ function reset() {
       <div v-if="error" class="error-banner">{{ error }}</div>
 
       <div class="items-section">
-        <h3>Productos/Servicios</h3>
+        <div class="items-header">
+          <h3>Productos/Servicios</h3>
+          <button @click="showNewItemForm = !showNewItemForm" class="btn-primary btn-small">
+            {{ showNewItemForm ? 'Cancelar' : '+ Agregar Producto' }}
+          </button>
+        </div>
+
+        <div v-if="showNewItemForm" class="new-item-card">
+          <h4>Nuevo Producto</h4>
+          <div class="form-row">
+            <input v-model="newItem.name" placeholder="Nombre (ej: Medialunas)" />
+            <input v-model="newItem.price" type="number" placeholder="Precio ($)" />
+            <button @click="createItem" class="btn-primary" :disabled="creatingItem || !newItem.name">
+              {{ creatingItem ? '...' : 'Agregar' }}
+            </button>
+          </div>
+        </div>
         
-        <div v-if="items.length === 0" class="empty-state">
+        <div v-if="items.length === 0 && !showNewItemForm" class="empty-state">
           <p>No hay items en el catálogo</p>
         </div>
 
@@ -563,7 +606,49 @@ function reset() {
 }
 
 .items-section h3 {
+  margin: 0;
+}
+
+.items-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.btn-small {
+  width: auto;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.new-item-card {
+  background: white;
+  border: 2px solid var(--color-primary);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.new-item-card h4 {
   margin-bottom: 1rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.form-row input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.form-row button {
+  width: auto;
+  padding: 0 1.5rem;
 }
 
 .items-grid {

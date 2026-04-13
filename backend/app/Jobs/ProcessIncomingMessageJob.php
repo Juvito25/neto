@@ -8,7 +8,6 @@ use App\Models\Message;
 use App\Models\WhatsappInstance;
 use App\Models\Catalog;
 use App\Models\CatalogItem;
-use App\Actions\SearchProductAction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -28,7 +27,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
         public array $messageData
     ) {}
 
-    public function handle(SearchProductAction $searchProduct): void
+    public function handle(): void
     {
         $tenantId = $this->messageData['tenant_id'] ?? null;
         $phone = $this->messageData['phone'] ?? null;
@@ -78,29 +77,9 @@ class ProcessIncomingMessageJob implements ShouldQueue
             'media_url' => $mediaUrl,
         ]);
 
-        $isProductQuery = $this->looksLikeProductQuery($messageBody);
-        
-        $productsContext = '';
-        if ($isProductQuery) {
-            $products = $searchProduct($tenantId, $messageBody);
-            if ($products->isNotEmpty()) {
-                $productsContext .= "\n\nProductos disponibles:\n";
-                foreach ($products as $product) {
-                    $productsContext .= "- {$product->name}: \${$product->price}";
-                    if ($product->stock !== null) {
-                        $productsContext .= " (Stock: {$product->stock})";
-                    }
-                    if ($product->description) {
-                        $productsContext .= "\n  {$product->description}";
-                    }
-                    $productsContext .= "\n";
-                }
-            }
-        }
-
         $catalogContext = $this->buildCatalogContext($tenantId);
 
-        $systemPrompt = $this->buildSystemPrompt($tenant, $productsContext, $catalogContext);
+        $systemPrompt = $this->buildSystemPrompt($tenant, $catalogContext);
         $conversationHistory = $this->buildConversationHistory($tenantId, $contact->id);
 
         $response = $this->callGroq($systemPrompt, $conversationHistory, $messageBody);
@@ -138,15 +117,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
         }
     }
 
-    private function looksLikeProductQuery(string $message): bool
-    {
-        $productKeywords = ['precio', 'tienen', 'cuánto', 'producto', 'comprar', 'stock', 'disponible', 'tenés', 'busco', 'necesito'];
-        $serviceKeywords = ['servicio', 'clase', 'consulta', 'turno', 'cita', 'programar', 'reservar', 'cuánto cuesta', 'presupuesto'];
-        $messageLower = mb_strtolower($message);
-        
-        return collect($productKeywords)->contains(fn($keyword) => mb_strpos($messageLower, $keyword) !== false)
-            || collect($serviceKeywords)->contains(fn($keyword) => mb_strpos($messageLower, $keyword) !== false);
-    }
+
 
     private function buildCatalogContext(string $tenantId): string
     {
@@ -190,7 +161,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
         return $context;
     }
 
-    private function buildSystemPrompt(Tenant $tenant, string $productsContext = '', string $catalogContext = ''): string
+    private function buildSystemPrompt(Tenant $tenant, string $catalogContext = ''): string
     {
         $prompt = "Vos sos el asistente virtual de *{$tenant->business_name}*.";
         
@@ -225,7 +196,6 @@ class ProcessIncomingMessageJob implements ShouldQueue
         }
 
         $prompt .= "\n\nRespondé de manera amable, concise y útil.";
-        $prompt .= $productsContext;
         $prompt .= $catalogContext;
 
         if ($tenant->payment_transfer_enabled || $tenant->payment_cash_enabled) {

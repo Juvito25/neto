@@ -43,7 +43,8 @@ async function selectPlan(plan) {
     router.push('/onboarding')
   } catch (e) {
     console.error(e)
-    alert('Error al procesar el plan')
+    const message = e.response?.data?.message || 'Error al procesar el plan'
+    alert(message)
   } finally {
     selecting.value = false
   }
@@ -146,8 +147,8 @@ function formatPrice(cents) {
 }
 
 .plans-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  justify-content: center;
   gap: 1.5rem;
   align-items: start;
 }

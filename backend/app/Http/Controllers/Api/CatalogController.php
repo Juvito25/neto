@@ -243,6 +243,29 @@ class CatalogController extends Controller
         ]);
     }
 
+    public function storeItem(Request $request)
+    {
+        $tenantId = $request->user()->tenant_id;
+        
+        // Ensure the tenant has an active catalog, or create one.
+        $catalog = Catalog::firstOrCreate(
+            ['tenant_id' => $tenantId, 'status' => 'active'],
+            ['type' => 'both', 'name' => 'Catálogo Principal']
+        );
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'price' => 'nullable|numeric',
+        ]);
+
+        $item = CatalogItem::create(array_merge($validated, [
+            'tenant_id' => $tenantId,
+            'catalog_id' => $catalog->id,
+        ]));
+
+        return response()->json(['success' => true, 'data' => $item]);
+    }
+
     public function updateItem(Request $request, string $itemId)
     {
         $tenantId = $request->user()->tenant_id;

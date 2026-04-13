@@ -15,7 +15,12 @@ class BillingController extends Controller
     {
         $tenant = $request->user()->tenant;
         
-        MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
+        $mercadoPagoToken = config('services.mercadopago.access_token');
+        if (empty(trim($mercadoPagoToken))) {
+            return response()->json(['message' => 'El dueño no ha configurado sus credenciales de cobro en MercadoPago. MP_ACCESS_TOKEN está vacío.'], 400);
+        }
+
+        MercadoPagoConfig::setAccessToken($mercadoPagoToken);
 
         $client = new PreApprovalClient();
         

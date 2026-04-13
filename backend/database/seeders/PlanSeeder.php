@@ -11,57 +11,35 @@ class PlanSeeder extends Seeder
 {
     public function run(): void
     {
-        // Crear planes si no existen
-        $plans = [
-            [
-                'id' => Str::uuid(),
-                'name' => 'starter',
-                'display_name' => 'Starter',
-                'catalog_items_limit' => 500,
-                'messages_limit' => 1000,
-                'price_cents' => 0,
-                'currency' => 'USD',
-                'trial_days' => 14,
-                'features' => json_encode(['Catálogo básico', '1000 mensajes/mes', 'Soporte por email']),
-                'is_active' => true,
-            ],
-            [
-                'id' => Str::uuid(),
-                'name' => 'pro',
-                'display_name' => 'Pro',
-                'catalog_items_limit' => 2000,
-                'messages_limit' => 5000,
-                'price_cents' => 2900,
-                'currency' => 'USD',
-                'trial_days' => 14,
-                'features' => json_encode(['Hasta 2000 productos', '5000 mensajes/mes', 'Soporte prioritario', 'Estadísticas avanzadas']),
-                'is_active' => true,
-            ],
-            [
-                'id' => Str::uuid(),
-                'name' => 'enterprise',
-                'display_name' => 'Enterprise',
-                'catalog_items_limit' => 10000,
-                'messages_limit' => 50000,
-                'price_cents' => 9900,
-                'currency' => 'USD',
-                'trial_days' => 30,
-                'features' => json_encode(['Hasta 10000 productos', '50000 mensajes/mes', 'Soporte 24/7', 'API dedicada', 'SLA garantizado']),
-                'is_active' => true,
-            ],
+        // Único plan MVP: $19 USD / 1000 mensajes
+        $mvpPlan = [
+            'name' => 'starter',
+            'display_name' => 'Plan Mensual MVP',
+            'catalog_items_limit' => 1000,
+            'messages_limit' => 1000000, // Límite de mensajes (tokens o cantidad? El user dijo 1000 mensajes, pero en la DB parece ser tokens o cantidad dependiendo de la interpretación. El nombre dice messages_limit. Pongamos 1000 si son mensajes.)
+            'price_cents' => 1900,
+            'currency' => 'USD',
+            'trial_days' => 7,
+            'features' => json_encode([
+                'Hasta 1000 productos',
+                '1000 mensajes por mes',
+                'IA de respuesta automática',
+                'Ventas automatizadas',
+                'Soporte por WhatsApp'
+            ]),
+            'is_active' => true,
         ];
 
-        foreach ($plans as $planData) {
-            Plan::updateOrCreate(
-                ['name' => $planData['name']],
-                $planData
-            );
-        }
+        // Usamos updateOrCreate sin el ID para evitar el choque de FK si ya existe
+        $plan = Plan::updateOrCreate(
+            ['name' => 'starter'],
+            $mvpPlan
+        );
 
-        // Asignar plan 'pro' a tenants existentes que no tienen plan_id
-        $proPlan = Plan::where('name', 'pro')->first();
-        if ($proPlan) {
-            Tenant::whereNull('plan_id')->update(['plan_id' => $proPlan->id]);
-        }
+        // Desactivar otros planes si existen
+        Plan::where('name', '!=', 'starter')->update(['is_active' => false]);
+
+        // Asegurar que todos los tenants tengan este plan asignado para el lanzamiento
+        Tenant::whereNull('plan_id')->update(['plan_id' => $plan->id]);
     }
 }

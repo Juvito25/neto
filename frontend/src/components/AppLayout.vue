@@ -13,7 +13,6 @@
           <router-link to="/sales" class="sales-link">
             Ventas <span v-if="pendingSales > 0" class="badge">{{ pendingSales }}</span>
           </router-link>
-          <router-link to="/inventory">Inventario</router-link>
           <router-link to="/catalog">Catálogo</router-link>
           <router-link to="/settings">Configuración</router-link>
         </nav>

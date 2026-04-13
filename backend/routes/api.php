@@ -42,12 +42,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tenant/onboarding', [TenantController::class, 'onboardingStatus']);
     Route::put('/tenant/onboarding', [TenantController::class, 'updateOnboarding']);
 
-    Route::get('/products', [ProductController::class, 'index']);
-    Route::post('/products', [ProductController::class, 'store']);
-    Route::put('/products/{product}', [ProductController::class, 'update']);
-    Route::delete('/products/{product}', [ProductController::class, 'destroy']);
-    Route::post('/products/import', [ProductController::class, 'import']);
-
     Route::get('/conversations', [ConversationController::class, 'index']);
     Route::get('/conversations/{contact}', [ConversationController::class, 'show']);
     Route::get('/conversations/{contact}/messages', [ConversationController::class, 'messages']);
@@ -63,6 +57,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/catalog', [CatalogController::class, 'getCurrent']);
     Route::get('/catalog/template', [CatalogController::class, 'getTemplate']);
     Route::post('/catalog/upload', [CatalogController::class, 'upload']);
+    Route::post('/catalog/items', [CatalogController::class, 'storeItem']);
     Route::get('/catalog/{catalogId}/items', [CatalogController::class, 'getItems']);
     Route::put('/catalog/items/{item}', [CatalogController::class, 'updateItem']);
     Route::delete('/catalog/{catalogId}', [CatalogController::class, 'destroy']);
