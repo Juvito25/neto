@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    allowedHosts: ['frontend', 'localhost', 'nginx'],
+    allowedHosts: ['frontend', 'localhost', 'nginx', 'blue-hounds-design.loca.lt', 'chubby-pants-repair.loca.lt', '.loca.lt'],
     watch: {
       usePolling: true,
     },

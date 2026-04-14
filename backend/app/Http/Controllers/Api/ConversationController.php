@@ -11,7 +11,10 @@ class ConversationController extends Controller
 {
     public function index(Request $request)
     {
-        $contacts = Contact::with(['messages' => function ($q) {
+        $tenant = $request->user()->tenant;
+        
+        $contacts = Contact::where('tenant_id', $tenant->id)
+        ->with(['messages' => function ($q) {
             $q->latest()->limit(1);
         }])
         ->withCount('messages')
@@ -25,13 +28,25 @@ class ConversationController extends Controller
         return response()->json($contacts);
     }
 
-    public function show(Contact $contact)
+    public function show(Request $request, Contact $contact)
     {
+        $tenant = $request->user()->tenant;
+        
+        if ($contact->tenant_id !== $tenant->id) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+        
         return response()->json($contact);
     }
 
     public function messages(Request $request, Contact $contact)
     {
+        $tenant = $request->user()->tenant;
+        
+        if ($contact->tenant_id !== $tenant->id) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
+        
         $messages = Message::where('contact_id', $contact->id)
             ->orderBy('created_at', 'desc')
             ->paginate(50);

@@ -44,8 +44,11 @@ async function selectPlan(plan) {
     router.push('/onboarding')
   } catch (e) {
     console.error('Error selecting plan:', e)
-    const message = e.response?.data?.message || 'Error al procesar el plan'
-    alert(message)
+    const errorData = e.response?.data
+    const message = errorData?.message || 'Error al procesar el plan'
+    const details = errorData?.details ? JSON.stringify(errorData.details, null, 2) : ''
+    
+    alert(message + (details ? '\n\nDetalles:\n' + details : ''))
   } finally {
     selecting.value = false
   }

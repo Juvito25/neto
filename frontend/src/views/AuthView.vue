@@ -10,6 +10,7 @@ const route = useRoute()
 const isLogin = computed(() => route.path === '/login')
 const loading = ref(false)
 const error = ref('')
+const showPassword = ref(false)
 
 const form = ref({
   name: '',
@@ -98,24 +99,32 @@ const handleSubmit = async () => {
 
             <div class="form-group" key="password">
               <label for="password">Contraseña</label>
-              <input
-                id="password"
-                v-model="form.password"
-                type="password"
-                required
-                placeholder="••••••••"
-              />
+              <div class="password-input-wrapper">
+                <input
+                  id="password"
+                  v-model="form.password"
+                  :type="showPassword ? 'text' : 'password'"
+                  required
+                  placeholder="••••••••"
+                />
+                <button type="button" class="password-toggle" @click="showPassword = !showPassword">
+                  <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+              </div>
             </div>
 
             <div v-if="!isLogin" class="form-group" key="confirm">
               <label for="password_confirmation">Confirmar contraseña</label>
-              <input
-                id="password_confirmation"
-                v-model="form.password_confirmation"
-                type="password"
-                required
-                placeholder="••••••••"
-              />
+              <div class="password-input-wrapper">
+                <input
+                  id="password_confirmation"
+                  v-model="form.password_confirmation"
+                  :type="showPassword ? 'text' : 'password'"
+                  required
+                  placeholder="••••••••"
+                />
+              </div>
             </div>
           </transition-group>
         </div>
@@ -241,6 +250,30 @@ const handleSubmit = async () => {
   background: white;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 4px var(--color-primary-10);
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.password-toggle:hover {
+  color: var(--color-primary);
 }
 
 .btn-submit {

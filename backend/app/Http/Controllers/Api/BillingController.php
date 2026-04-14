@@ -27,24 +27,46 @@ class BillingController extends Controller
         $backUrl = config('app.url') . '/settings'; 
 
         try {
-            $preapproval = $client->create([
-                "reason" => "NETO - Plan Mensual",
+            $preapproval_data = [
+                "reason" => "NETO - Plan Pro Mensual",
+                "payer_email" => $tenant->email, 
                 "auto_recurring" => [
                     "frequency" => 1,
                     "frequency_type" => "months",
-                    "transaction_amount" => 19000, 
+                    "transaction_amount" => (float) 20, 
                     "currency_id" => "ARS" 
                 ],
                 "back_url" => $backUrl,
                 "status" => "pending"
-            ]);
+            ];
+
+            $preapproval = $client->create($preapproval_data);
+
+            Log::info('Mercado Pago Full Response:', (array) $preapproval);
 
             $tenant->update(['mp_subscription_id' => $preapproval->id]);
 
-            return response()->json(['init_point' => $preapproval->init_point]);
+            $initPoint = $preapproval->init_point ?? null;
+            if (!$initPoint && isset($preapproval->sandbox_init_point)) {
+                $initPoint = $preapproval->sandbox_init_point;
+            }
+
+            return response()->json([
+                'success' => true,
+                'init_point' => $initPoint,
+                'id' => $preapproval->id
+            ]);
+
         } catch (\Exception $e) {
-            Log::error('Billing error', ['error' => $e->getMessage()]);
-            return response()->json(['message' => 'Error creando suscripcion: ' . $e->getMessage()], 500);
+            Log::error('Mercado Pago Subscription Error:', [
+                'message' => $e->getMessage(),
+                'payload' => $preapproval_data ?? null
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -56,12 +78,13 @@ class BillingController extends Controller
         $dataId = $request->input('data.id');
 
         if ($type === 'subscription_preapproval') {
-            MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
+            $mercadoPagoToken = config('services.mercadopago.access_token');
+            MercadoPagoConfig::setAccessToken($mercadoPagoToken);
+            
             $client = new PreApprovalClient();
             $sub = $client->get($dataId);
             
             if ($sub) {
-                // Remove global scope if webhook is unauthenticated
                 $tenant = Tenant::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
                             ->where('mp_subscription_id', $sub->id)
                             ->first();
