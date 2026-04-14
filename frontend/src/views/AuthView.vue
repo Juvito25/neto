@@ -26,7 +26,11 @@ const handleSubmit = async () => {
 
   try {
     const endpoint = isLogin.value ? '/auth/login' : '/auth/register'
-    const { data } = await axios.post(endpoint, form.value)
+    const payload = isLogin.value 
+      ? { email: form.value.email, password: form.value.password }
+      : form.value
+
+    const { data } = await axios.post(endpoint, payload)
 
     localStorage.setItem('token', data.token)
     localStorage.setItem('user', JSON.stringify(data.user))
@@ -34,7 +38,12 @@ const handleSubmit = async () => {
     router.push('/')
   } catch (err) {
     const errorData = err.response?.data
-    error.value = errorData?.message || errorData?.error || 'Error en la solicitud'
+    if (errorData?.errors) {
+      const firstError = Object.values(errorData.errors)[0][0]
+      error.value = firstError
+    } else {
+      error.value = errorData?.message || errorData?.error || 'Error en la solicitud'
+    }
   } finally {
     loading.value = false
   }

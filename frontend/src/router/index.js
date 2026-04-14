@@ -64,7 +64,7 @@ router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token')
   
   // Rutas públicas
-  const publicRoutes = ['/login', '/register', '/plans', '/onboarding']
+  const publicRoutes = ['/login', '/register', '/onboarding', '/plans']
   const isPublicRoute = publicRoutes.includes(to.path)
   
   // Si requiere auth pero no hay token -> login
@@ -79,14 +79,8 @@ router.beforeEach(async (to, from, next) => {
     return
   }
   
-  // Si no hay token y va a ruta que requiere auth -> login
-  if (!token && to.meta.requiresAuth) {
-    next('/login')
-    return
-  }
-  
-  // Si hay token, verificar onboarding y plan (incluyendo ruta raíz)
-  if (token && !isPublicRoute) {
+  // Si hay token, verificar onboarding y plan (solo para rutas principales)
+  if (token && (to.path === '/' || to.path === '')) {
     try {
       const axios = (await import('axios')).default
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
@@ -104,7 +98,7 @@ router.beforeEach(async (to, from, next) => {
         next('/onboarding')
         return
       }
-      
+
     } catch (error) {
       console.error('Error checking tenant:', error)
       localStorage.removeItem('token')

@@ -17,12 +17,24 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:tenants',
-            'password' => 'required|string|min:8',
-            'business_name' => 'required|string|max:255',
-            'rubro' => 'nullable|string|max:255',
+        $validated = $request->validate([
+            'name' => 'required|string|min:2|max:255',
+            'email' => 'required|string|email|max:255|unique:tenants,email',
+            'password' => 'required|string|min:8|confirmed',
+            'business_name' => 'required|string|min:2|max:255',
+            'password_confirmation' => 'required|string|min:8',
+        ], [
+            'name.required' => 'El nombre es obligatorio',
+            'name.min' => 'El nombre debe tener al menos 2 caracteres',
+            'email.required' => 'El email es obligatorio',
+            'email.email' => 'Ingresa un email válido (ej: tu@email.com)',
+            'email.unique' => 'Este email ya está registrado',
+            'password.required' => 'La contraseña es obligatoria',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres',
+            'password.confirmed' => 'Las contraseñas no coinciden',
+            'password_confirmation.required' => 'Debes confirmar la contraseña',
+            'business_name.required' => 'El nombre del negocio es obligatorio',
+            'business_name.min' => 'El nombre del negocio debe tener al menos 2 caracteres',
         ]);
 
         return DB::transaction(function () use ($request) {
@@ -101,9 +113,13 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+        ], [
+            'email.required' => 'El email es obligatorio',
+            'email.email' => 'Ingresa un email válido',
+            'password.required' => 'La contraseña es obligatoria',
         ]);
 
         $tenant = Tenant::where('email', $request->email)->first();
