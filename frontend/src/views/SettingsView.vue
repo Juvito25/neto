@@ -116,6 +116,7 @@
 
               <div class="form-footer">
                 <button type="submit" class="btn btn-primary" :disabled="saving">
+                  <span v-if="saving" class="btn-spinner"></span>
                   {{ saving ? 'Guardando...' : 'Guardar cambios' }}
                 </button>
               </div>
@@ -228,6 +229,12 @@
     </main>
     
     <PaymentSuccessModal />
+    <Toast 
+      v-if="toast.show" 
+      :message="toast.message" 
+      :type="toast.type" 
+      @close="toast.show = false"
+    />
   </div>
 </template>
 
@@ -237,6 +244,7 @@ import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import QRCode from 'qrcode'
 import PaymentSuccessModal from '@/components/PaymentSuccessModal.vue'
+import Toast from '@/components/Toast.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -247,6 +255,7 @@ const qrCode = ref(null)
 const loadingWhatsApp = ref(false)
 const saving = ref(false)
 let pollingInterval = null
+const toast = ref({ show: false, message: '', type: 'success' })
 
 const tabs = [
   { id: 'negocio', label: 'Negocio' },
@@ -302,14 +311,18 @@ const loadData = async () => {
 const loadWhatsAppStatus = async () => {
   try {
     const { data } = await axios.get('/whatsapp/status')
+    const wasConnected = whatsappStatus.value === 'connected'
     whatsappStatus.value = data.status
-
+    
     if (whatsappStatus.value === 'connecting' && !qrCode.value) {
       fetchQRCode()
     }
     
     if (whatsappStatus.value === 'connected') {
       qrCode.value = null
+      if (!wasConnected) {
+        toast.value = { show: true, message: '¡WhatsApp conectado! Tu bot está activo 🤖', type: 'success' }
+      }
     }
   } catch (e) {
     console.error('Error loading WhatsApp status:', e)
@@ -339,9 +352,10 @@ const saveTenant = async () => {
   saving.value = true
   try {
     await axios.put('/tenant', tenantForm.value)
-    // Optional: show toast
+    toast.value = { show: true, message: 'Cambios guardados correctamente', type: 'success' }
   } catch (e) {
     console.error(e)
+    toast.value = { show: true, message: 'Error al guardar los cambios', type: 'error' }
   } finally {
     saving.value = false
   }
@@ -662,8 +676,25 @@ input:checked + .slider:before { transform: translateX(20px); }
 .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .btn-outline { background: white; border-color: var(--color-border); color: var(--color-dark); }
 .btn-outline-danger { background: white; border-color: var(--color-danger); color: var(--color-danger); }
+.btn-ghost { background: transparent; color: var(--color-text-muted); }
+.btn-ghost:hover { background: var(--color-surface); color: var(--color-primary); }
 .btn-full { width: 100%; }
 .btn-sm { padding: 6px 12px; font-size: 13px; }
 .btn-xs { padding: 4px 8px; font-size: 12px; }
