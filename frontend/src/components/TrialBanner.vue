@@ -1,6 +1,6 @@
 <template>
   <transition name="slide-down">
-    <div v-if="showBanner" class="trial-banner" :class="bannerClass">
+    <div v-if="bannerVisible" class="trial-banner" :class="bannerClass">
       <div class="banner-content">
         <span class="banner-icon">{{ bannerIcon }}</span>
         <span class="banner-text">{{ bannerText }}</span>
@@ -26,6 +26,7 @@ const tenant = ref(null)
 const trialEndsAt = ref(null)
 const subscriptionStatus = ref(null)
 const dismissedToday = ref(false)
+const bannerVisible = ref(true)
 
 const fetchBillingStatus = async () => {
   try {
@@ -33,6 +34,17 @@ const fetchBillingStatus = async () => {
     tenant.value = data.tenant
     trialEndsAt.value = data.tenant.trial_ends_at
     subscriptionStatus.value = data.tenant.subscription_status
+    
+    // Check if banner should be visible
+    const dismissedDate = localStorage.getItem('trial_banner_dismissed')
+    const today = new Date().toDateString()
+    if (dismissedDate === today) {
+      dismissedToday.value = true
+      bannerVisible.value = false
+    }
+    if (subscriptionStatus.value === 'active') {
+      bannerVisible.value = false
+    }
   } catch (e) {
     console.error('Error fetching billing status:', e)
   }
@@ -95,7 +107,7 @@ const dismiss = () => {
   dismissedToday.value = true
   const today = new Date().toDateString()
   localStorage.setItem('trial_banner_dismissed', today)
-  showBanner.value = false
+  bannerVisible.value = false
 }
 
 const goToPlans = () => {
@@ -103,10 +115,6 @@ const goToPlans = () => {
 }
 
 onMounted(async () => {
-  const dismissedDate = localStorage.getItem('trial_banner_dismissed')
-  if (dismissedDate === new Date().toDateString()) {
-    dismissedToday.value = true
-  }
   await fetchBillingStatus()
 })
 </script>
