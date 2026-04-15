@@ -79,33 +79,8 @@ router.beforeEach(async (to, from, next) => {
     return
   }
   
-  // Si hay token, verificar onboarding y plan (solo para rutas principales)
-  if (token && (to.path === '/' || to.path === '')) {
-    try {
-      const axios = (await import('axios')).default
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      
-      const { data } = await axios.get('/tenant')
-      
-      // Si no tiene plan -> ir a seleccionar plan
-      if (!data.plan_id) {
-        next('/plans')
-        return
-      }
-      
-      // Si tiene plan pero no completó onboarding -> ir a onboarding
-      if (!data.onboarding_completed) {
-        next('/onboarding')
-        return
-      }
-
-    } catch (error) {
-      console.error('Error checking tenant:', error)
-      localStorage.removeItem('token')
-      next('/login')
-      return
-    }
-  }
+  // /plans solo accesible si el trial expiró o desde el TrialBanner
+  // No redirigir automáticamente desde el router
   
   next()
 })
