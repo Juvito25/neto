@@ -21,9 +21,15 @@ class CatalogController extends Controller
             ->latest()
             ->first();
 
+        $totalItems = 0;
+        if ($catalog) {
+            $totalItems = $catalog->items()->count();
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $catalog
+            'data' => $catalog,
+            'total_items' => $totalItems
         ]);
     }
 
