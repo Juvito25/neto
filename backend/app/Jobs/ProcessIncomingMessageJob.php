@@ -46,8 +46,12 @@ class ProcessIncomingMessageJob implements ShouldQueue
             return;
         }
 
-        if ($tenant->isTrialExpired() && !$tenant->isActive()) {
-            Log::info('Bot detenido: trial vencido', ['tenant_id' => $tenantId]);
+        if (!$tenant->canUseBot()) {
+            Log::info('Bot detenido: trial vencido o suscripción inactiva', [
+                'tenant_id'           => $tenantId,
+                'subscription_status' => $tenant->subscription_status,
+                'trial_ends_at'       => $tenant->trial_ends_at,
+            ]);
             return;
         }
 

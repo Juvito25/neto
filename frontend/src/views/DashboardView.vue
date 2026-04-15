@@ -31,6 +31,9 @@
       </div>
     </transition>
 
+    <!-- Onboarding Checklist -->
+    <OnboardingChecklist v-if="!tenant?.onboarding_completed" @complete="onOnboardingComplete" />
+
     <!-- Metrics Grid -->
     <div class="metrics-grid">
       <div v-for="metric in metricsList" :key="metric.label" class="metric-card" :class="metric.class">
@@ -144,12 +147,17 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
+import OnboardingChecklist from '@/components/OnboardingChecklist.vue'
 
 const router = useRouter()
 const tenant = ref(null)
 const trialDaysRemaining = ref(0)
 const contacts = ref([])
 const pendingSalesCount = ref(0)
+
+const onOnboardingComplete = () => {
+  tenant.value.onboarding_completed = true
+}
 
 const metricsData = ref({
   received: 0,

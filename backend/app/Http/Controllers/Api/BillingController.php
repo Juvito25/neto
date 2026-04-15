@@ -24,7 +24,7 @@ class BillingController extends Controller
 
         $client = new PreApprovalClient();
         
-        $backUrl = config('app.url') . '/settings'; 
+        $backUrl = config('app.url') . '/settings?payment=success'; 
 
         try {
             $preapproval_data = [
@@ -111,9 +111,11 @@ class BillingController extends Controller
     {
         $tenant = $request->user()->tenant;
         return response()->json([
-            'subscription_status' => $tenant->subscription_status,
-            'trial_ends_at' => $tenant->trial_ends_at,
-            'days_remaining' => $tenant->daysRemainingInTrial(),
+            'tenant' => [
+                'subscription_status' => $tenant->subscription_status,
+                'trial_ends_at' => $tenant->trial_ends_at,
+                'days_remaining' => $tenant->daysRemainingInTrial(),
+            ],
         ]);
     }
 }

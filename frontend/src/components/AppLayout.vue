@@ -1,15 +1,7 @@
 <template>
   <div class="app-wrapper">
-    <!-- Trial Expired Banner -->
-    <transition name="slide-down">
-      <div v-if="trialExpired" class="global-banner danger-banner">
-        <div class="banner-content">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-          <span>Tu prueba gratuita venció. El bot está pausado.</span>
-          <router-link to="/plans" class="banner-cta">Actualizar Plan</router-link>
-        </div>
-      </div>
-    </transition>
+    <TrialBanner />
+    <OnboardingWelcome />
 
     <div class="app-layout">
       <!-- Sidebar -->
@@ -67,6 +59,8 @@ import { ref, computed, onMounted, onUnmounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useSalesStore } from '@/stores/sales'
+import TrialBanner from '@/components/TrialBanner.vue'
+import OnboardingWelcome from '@/components/OnboardingWelcome.vue'
 import logoBlue from '@/assets/branding/media__1776087843743.png'
 import logoGreen from '@/assets/branding/media__1776087843817.png'
 
@@ -74,7 +68,6 @@ const router = useRouter()
 const salesStore = useSalesStore()
 const tenant = ref(null)
 const userEmail = ref('')
-const trialExpired = ref(false)
 const whatsappStatus = ref('disconnected') // 'connected', 'disconnected', 'connecting'
 const logoFailed = ref(false)
 const botActive = computed(() => whatsappStatus.value === 'connected')
@@ -114,13 +107,7 @@ const fetchStatus = async () => {
     tenant.value = tenantData
     whatsappStatus.value = tenantData.whatsapp_status || 'disconnected'
     
-    // Check trial
-    const trialEnd = tenantData.trial_ends_at ? new Date(tenantData.trial_ends_at) : null
-    if (trialEnd && trialEnd < new Date() && tenantData.subscription_status !== 'active') {
-      trialExpired.value = true
-    } else {
-      trialExpired.value = false
-    }
+    // Check trial - now handled by TrialBanner component
   } catch (e) {
     console.error('Error fetching status:', e)
   }

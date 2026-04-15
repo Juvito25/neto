@@ -40,6 +40,10 @@
               <div class="form-group">
                 <label>Instrucciones para el bot</label>
                 <textarea v-model="tenantForm.custom_prompt" placeholder="Ej: 'Sé amable y siempre ofrece las facturas del día'"></textarea>
+                <p class="field-help">
+                  <span class="help-icon">💡</span>
+                  <strong>Tip:</strong> Sé específico. En lugar de "sé amable", escribí "Cuando el cliente pregunte el precio, siempre mencioná si hay descuento por cantidad."
+                </p>
               </div>
 
               <div class="payment-methods">
@@ -66,6 +70,10 @@
                         <div class="form-group">
                           <label>CBU o Alias</label>
                           <input v-model="tenantForm.payment_transfer_cbu" placeholder="Ej: neto.bot.banco" />
+                          <p class="field-help">
+                            <span class="help-icon">💡</span>
+                            Este CBU o alias aparecerá automáticamente cuando un cliente confirme que quiere pagar por transferencia.
+                          </p>
                         </div>
                         <div class="form-group">
                           <label>Titular</label>
@@ -143,7 +151,13 @@
                 <div v-else-if="qrCode" class="ws-qr-container">
                   <div class="ws-qr-header">
                     <h4>Escaneá el código</h4>
-                    <p>1. Abrí WhatsApp en tu celu<br>2. Tocá Menú o Configuración y seleccioná Dispositivos vinculados<br>3. Tocá Vincular un dispositivo</p>
+                    <p class="ws-help-text">
+                      <strong>📱 Cómo conectar WhatsApp:</strong><br>
+                      1. Abrí WhatsApp en tu celular<br>
+                      2. Tocá los 3 puntos (⋮) → Dispositivos vinculados<br>
+                      3. Tocá "Vincular un dispositivo"<br>
+                      4. Escaneá el código QR que aparece abajo
+                    </p>
                   </div>
                   <div class="qr-wrapper">
                     <img :src="qrCode" alt="Scan me" class="qr-image" />
@@ -212,17 +226,21 @@
         </div>
       </transition>
     </main>
+    
+    <PaymentSuccessModal />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import QRCode from 'qrcode'
+import PaymentSuccessModal from '@/components/PaymentSuccessModal.vue'
 
 const router = useRouter()
-const activeTab = ref('negocio')
+const route = useRoute()
+const activeTab = ref(route.query.tab || 'negocio')
 const tenant = ref(null)
 const whatsappStatus = ref('disconnected')
 const qrCode = ref(null)

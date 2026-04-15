@@ -97,7 +97,15 @@ class Tenant extends Model implements Authenticatable
 
     public function isTrialExpired(): bool
     {
-        return $this->trial_ends_at && $this->trial_ends_at->isPast();
+        return $this->subscription_status === 'trial'
+            && $this->trial_ends_at !== null
+            && $this->trial_ends_at->isPast();
+    }
+
+    public function canUseBot(): bool
+    {
+        return $this->subscription_status === 'active' || 
+               ($this->subscription_status === 'trial' && !$this->isTrialExpired());
     }
 
     public function hasReachedLimit(): bool
