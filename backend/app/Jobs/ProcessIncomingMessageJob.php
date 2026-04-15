@@ -97,7 +97,31 @@ class ProcessIncomingMessageJob implements ShouldQueue
         if ($response) {
             $replyContent = $response['content'];
 
-            if (preg_match('/VENTA_CERRADA:\s*(.*?)\s*\|\s*(transfer|cash)\s*\|\s*([\d\.,]+)/i', $replyContent, $matches)) {
+            // ULTRA aggressive cleanup - remove anything that looks like [number] at the end
+            // Also handle newlines before the bracket
+            $replyContent = preg_replace('/\n?\s*\[\d{3,7}\]\s*$/', '', $replyContent);
+            $replyContent = preg_replace('/\s*\[\d{3,7}\]/', '', $replyContent);
+            $replyContent = preg_replace('/[\*\[]?\s*VENTA_CERRADA:.*?(?:transfer|cash)\s*\|.*?\]?\s*$/im', '', $replyContent);
+            $replyContent = preg_replace('/[\*\[]?\s*VENTA_CERRADA:.*?(?:transfer|cash)\s*\|.*?\]?\s*/im', '', $replyContent);
+            $replyContent = trim($replyContent);
+
+            // Only create sale if VENTA_CERRADA was in the ORIGINAL response AND user sent a confirmation keyword
+            // Common confirmation keywords from users
+            $userMessage = strtolower(trim($messageBody));
+            $confirmationKeywords = ['si', 'sí', 'confirmo', 'ok', 'dale', 'perfecto', 'de acuerdo', 'está bien', 'por transferencia', 'transferencia', 'efectivo', 'pago', 'quiero', 'sí, por favor'];
+            
+            $isConfirmation = false;
+            foreach ($confirmationKeywords as $keyword) {
+                if (strpos($userMessage, $keyword) !== false) {
+                    $isConfirmation = true;
+                    break;
+                }
+            }
+            
+            // Only create sale if: user explicitly confirmed AND original response had VENTA_CERRADA
+            $hasVentaCerrada = preg_match('/VENTA_CERRADA:/i', $response['content'] ?? '');
+            
+            if ($hasVentaCerrada && $isConfirmation && preg_match('/VENTA_CERRADA:\s*(.*?)\s*\|\s*(transfer|cash)\s*\|\s*([\d\.,]+)/i', $response['content'], $matches)) {
                 $itemsDesc = trim($matches[1]);
                 $paymentMethod = strtolower(trim($matches[2]));
                 $amount = str_replace(',', '.', preg_replace('/[^0-9\.,]/', '', $matches[3]));
@@ -110,9 +134,12 @@ class ProcessIncomingMessageJob implements ShouldQueue
                     'status' => 'pending',
                     'total_amount' => $amount,
                 ]);
-
-                // Limpiar tag de la respuesta del bot independientemente de corchetes o asteriscos
-                $replyContent = trim(preg_replace('/[\*\[]?\s*VENTA_CERRADA:.*?\|.*?(?:transfer|cash)\s*\|.*?\s*[\*\]]?/i', '', $replyContent));
+                
+                Log::info('Sale created from user confirmation', [
+                    'tenant_id' => $tenantId,
+                    'contact_id' => $contact->id,
+                    'amount' => $amount,
+                ]);
             }
 
             Message::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)->create([

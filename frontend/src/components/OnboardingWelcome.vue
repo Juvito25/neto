@@ -59,19 +59,10 @@ const skipSetup = () => {
   show.value = false
   router.push('/')
 }
-  } catch (e) {
-    console.error('Error checking onboarding:', e)
-  }
-}
 
 const startSetup = () => {
   show.value = false
   router.push('/settings')
-}
-
-const skipSetup = () => {
-  show.value = false
-  router.push('/')
 }
 
 onMounted(() => {
@@ -113,5 +104,54 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.welcome-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-dark);
+  margin-bottom: 12px;
+  line-height: 1.3;
+}
+
+.welcome-subtitle {
+  font-size: 15px;
+  color: var(--color-text-muted);
+  margin-bottom: 32px;
+  line-height: 1.5;
+}
+
+.btn-primary {
+  display: block;
+  width: 100%;
+  padding: 14px 24px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: all 120ms ease;
+}
+
+.btn-primary:hover {
+  background: #0047b3;
+}
+
+.btn-secondary {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  color: var(--color-primary);
 }
 </style>

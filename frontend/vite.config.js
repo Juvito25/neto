@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    allowedHosts: ['frontend', 'localhost', 'nginx', 'blue-hounds-design.loca.lt', 'chubby-pants-repair.loca.lt', 'every-donuts-care.loca.lt', '.loca.lt'],
+    allowedHosts: ['frontend', 'localhost', 'nginx', 'blue-hounds-design.loca.lt', 'chubby-pants-repair.loca.lt', 'every-donuts-care.loca.lt', '.loca.lt', '78ec-190-105-212-98.ngrok-free.app', '.ngrok-free.app'],
     watch: {
       usePolling: true,
     },

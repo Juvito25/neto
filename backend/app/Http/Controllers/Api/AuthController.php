@@ -52,6 +52,7 @@ class AuthController extends Controller
                 'onboarding_step' => 'business',
                 'onboarding_completed' => false,
                 'trial_ends_at' => now()->addDays($trialDays),
+                'subscription_status' => 'trial',
             ]);
 
             $user = User::create([

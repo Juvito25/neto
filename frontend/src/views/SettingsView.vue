@@ -129,7 +129,7 @@
           <section class="settings-section">
             <div class="section-info">
               <h3>Conexión con WhatsApp</h3>
-              <p>Vinculá tu número para que el bot empiece a responder.</p>
+              <p>Vinculá tu número de WhatsApp para que el bot responda automáticamente a tus clientes.</p>
             </div>
 
             <div class="whatsapp-card" :class="whatsappStatus">
@@ -139,7 +139,7 @@
                 </div>
                 <div class="ws-info">
                   <h4>WhatsApp Conectado</h4>
-                  <p>Tu bot está respondiendo mensajes activamente.</p>
+                  <p>🤖 Tu bot ya está respondiendo automáticamente. Tu negocio nunca duerme.</p>
                 </div>
                 <button @click="disconnectWhatsApp" class="btn btn-outline-danger btn-sm">Desconectar</button>
               </div>
@@ -173,7 +173,7 @@
                 </div>
                 <div class="ws-info">
                   <h4>Bot Desconectado</h4>
-                  <p>Vinculá tu número para activar la inteligencia artificial.</p>
+                  <p>Tu WhatsApp puede responder de forma automática. Vinculá tu número para activar la IA.</p>
                 </div>
                 <button @click="connectWhatsApp" class="btn btn-primary btn-sm">Vincular Dispositivo</button>
               </div>
