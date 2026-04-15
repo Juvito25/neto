@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    allowedHosts: ['frontend', 'localhost', 'nginx', 'blue-hounds-design.loca.lt', 'chubby-pants-repair.loca.lt', '.loca.lt'],
+    allowedHosts: ['frontend', 'localhost', 'nginx', 'blue-hounds-design.loca.lt', 'chubby-pants-repair.loca.lt', 'every-donuts-care.loca.lt', '.loca.lt'],
     watch: {
       usePolling: true,
     },
@@ -25,7 +25,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://nginx:80',
         changeOrigin: true,
       },
     },
