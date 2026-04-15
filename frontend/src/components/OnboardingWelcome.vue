@@ -39,6 +39,9 @@ const businessName = computed(() => {
 })
 
 const checkOnboarding = async () => {
+  const alreadyWelcomed = localStorage.getItem('onboarding_welcomed')
+  if (alreadyWelcomed) return
+  
   try {
     const { data } = await axios.get('/tenant')
     tenant.value = data
@@ -46,6 +49,16 @@ const checkOnboarding = async () => {
     if (data.onboarding_completed === false) {
       show.value = true
     }
+  } catch (e) {
+    console.error('Error checking onboarding:', e)
+  }
+}
+
+const skipSetup = () => {
+  localStorage.setItem('onboarding_welcomed', 'true')
+  show.value = false
+  router.push('/')
+}
   } catch (e) {
     console.error('Error checking onboarding:', e)
   }
