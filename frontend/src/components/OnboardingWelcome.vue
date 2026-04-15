@@ -2,9 +2,7 @@
   <div class="welcome-overlay" v-if="show">
     <div class="welcome-modal">
       <div class="welcome-icon">
-        <div class="bar bar-1"></div>
-        <div class="bar bar-2"></div>
-        <div class="bar bar-3"></div>
+        <img src="@/assets/branding/neto-iso.svg" alt="NETO" class="iso-logo" />
       </div>
       
       <h1 class="welcome-title">
@@ -94,80 +92,13 @@ onMounted(() => {
   height: 64px;
   margin: 0 auto 24px;
   display: flex;
-  align-items: flex-end;
-  gap: 6px;
+  align-items: center;
   justify-content: center;
 }
 
-.bar {
-  width: 16px;
-  background: var(--color-primary);
-  border-radius: 4px;
-  animation: grow 0.6s ease-out forwards;
-  transform-origin: bottom;
-}
-
-.bar-1 { height: 32px; animation-delay: 0s; }
-.bar-2 { height: 48px; animation-delay: 0.1s; }
-.bar-3 { height: 24px; animation-delay: 0.2s; }
-
-@keyframes grow {
-  from {
-    transform: scaleY(0);
-    opacity: 0;
-  }
-  to {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-}
-
-.welcome-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--color-dark);
-  margin-bottom: 12px;
-  line-height: 1.3;
-}
-
-.welcome-subtitle {
-  font-size: 15px;
-  color: var(--color-text-muted);
-  margin-bottom: 32px;
-  line-height: 1.5;
-}
-
-.btn-primary {
-  display: block;
+.iso-logo {
   width: 100%;
-  padding: 14px 24px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  margin-bottom: 12px;
-  transition: all 120ms ease;
-}
-
-.btn-primary:hover {
-  background: #0047b3;
-}
-
-.btn-secondary {
-  display: block;
-  width: 100%;
-  padding: 12px;
-  background: transparent;
-  color: var(--color-text-muted);
-  border: none;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.btn-secondary:hover {
-  color: var(--color-primary);
+  height: 100%;
+  object-fit: contain;
 }
 </style>
