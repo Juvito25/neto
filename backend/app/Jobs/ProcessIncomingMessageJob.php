@@ -101,6 +101,8 @@ class ProcessIncomingMessageJob implements ShouldQueue
             // Also handle newlines before the bracket
             $replyContent = preg_replace('/\n?\s*\[\d{3,7}\]\s*$/', '', $replyContent);
             $replyContent = preg_replace('/\s*\[\d{3,7}\]/', '', $replyContent);
+            $replyContent = preg_replace('/[\*\[]?\s*VENTA_CERRADA:\s*.*?no disponible.*?\s*\|\s*.*?no disponible.*?\s*\|\s*.*?no disponible.*?\]?\s*$/im', '', $replyContent);
+            $replyContent = preg_replace('/[\*\[]?\s*VENTA_CERRADA:\s*.*?no disponible.*?\s*\|\s*.*?no disponible.*?\s*\|\s*.*?no disponible.*?\]?\s*/im', '', $replyContent);
             $replyContent = preg_replace('/[\*\[]?\s*VENTA_CERRADA:.*?(?:transfer|cash)\s*\|.*?\]?\s*$/im', '', $replyContent);
             $replyContent = preg_replace('/[\*\[]?\s*VENTA_CERRADA:.*?(?:transfer|cash)\s*\|.*?\]?\s*/im', '', $replyContent);
             $replyContent = trim($replyContent);
@@ -118,28 +120,57 @@ class ProcessIncomingMessageJob implements ShouldQueue
                 }
             }
             
-            // Only create sale if: user explicitly confirmed AND original response had VENTA_CERRADA
+            // Only create sale if: user explicitly confirmed AND original response had VENTA_CERRADA (valid, not placeholder)
             $hasVentaCerrada = preg_match('/VENTA_CERRADA:/i', $response['content'] ?? '');
             
+            // Parse VENTA_CERRADA but reject "(no disponible)" placeholders
             if ($hasVentaCerrada && $isConfirmation && preg_match('/VENTA_CERRADA:\s*(.*?)\s*\|\s*(transfer|cash)\s*\|\s*([\d\.,]+)/i', $response['content'], $matches)) {
                 $itemsDesc = trim($matches[1]);
                 $paymentMethod = strtolower(trim($matches[2]));
                 $amount = str_replace(',', '.', preg_replace('/[^0-9\.,]/', '', $matches[3]));
 
-                \App\Models\Sale::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)->create([
-                    'tenant_id' => $tenantId,
-                    'contact_id' => $contact->id,
-                    'items_description' => $itemsDesc,
-                    'payment_method' => $paymentMethod,
-                    'status' => 'pending',
-                    'total_amount' => $amount,
-                ]);
-                
-                Log::info('Sale created from user confirmation', [
-                    'tenant_id' => $tenantId,
-                    'contact_id' => $contact->id,
-                    'amount' => $amount,
-                ]);
+                // Skip if placeholder values
+                if (stripos($itemsDesc, 'no disponible') !== false || stripos($amount, 'no disponible') !== false) {
+                    Log::info('Sale skipped: placeholder values detected', [
+                        'items' => $itemsDesc,
+                        'amount' => $amount,
+                    ]);
+                } else {
+                    // Prevent duplicate sales: check if there's a recent pending sale from this contact
+                    $recentSale = \App\Models\Sale::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
+                        ->where('tenant_id', $tenantId)
+                        ->where('contact_id', $contact->id)
+                        ->where('status', 'pending')
+                        ->where('items_description', $itemsDesc)
+                        ->where('total_amount', $amount)
+                        ->where('created_at', '>', now()->subMinutes(5))
+                        ->first();
+                    
+                    if ($recentSale) {
+                        Log::info('Sale skipped: duplicate detected', [
+                            'items' => $itemsDesc,
+                            'amount' => $amount,
+                        ]);
+                    } else {
+                        \App\Models\Sale::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)->create([
+                            'tenant_id' => $tenantId,
+                            'contact_id' => $contact->id,
+                            'items_description' => $itemsDesc,
+                            'payment_method' => $paymentMethod,
+                            'status' => 'pending',
+                            'total_amount' => $amount,
+                        ]);
+                        
+                        // Increment sales counter on tenant
+                        $tenant->increment('sales_count');
+                        
+                        Log::info('Sale created from user confirmation', [
+                            'tenant_id' => $tenantId,
+                            'contact_id' => $contact->id,
+                            'amount' => $amount,
+                        ]);
+                    }
+                }
             }
 
             Message::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)->create([
@@ -210,7 +241,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
 
     private function buildSystemPrompt(Tenant $tenant, string $catalogContext = ''): string
     {
-        $prompt = "Vos sos el asistente virtual de *{$tenant->business_name}*.";
+        $prompt = "Vos sos el asistente virtual de *{$tenant->business_name}*. SÉ BREVE Y DIRECTO. No exageres con saludos largos ni saques conclusiones sobre lo que el cliente no dijo.";
         
         if ($tenant->description) {
             $prompt .= "\n\nInformación del negocio: {$tenant->description}";
@@ -259,19 +290,22 @@ class ProcessIncomingMessageJob implements ShouldQueue
                 if ($tenant->payment_cash_note) $prompt .= " (Indicación para darle al cliente: {$tenant->payment_cash_note})\n";
             }
 
-            $prompt .= "\nINSTRUCCIONES PARA CERRAR VENTAS:
-Cuando el cliente confirme su pedido, preguntale con cuál de los medios de pago de arriba prefiere pagar.
-Si elige transferencia, BRINDALE tus datos bancarios para que envíe el importe.
-Una vez que el cliente confirme que enviará el abono o que lo retirará, dale un mensaje de confirmación amigable.
+$prompt .= "\nFLUJO DE VENTAS (IMPORTANTE):
+1. Cuando el cliente pregunte por un producto oiga el precio, dále el precio y simplemente preguntale '¿Querés encargarlo?'
+2. SOLO cuando el cliente confirme que quiere comprar (dice sí, dale, ok, quiero, lo quiero, etc.), ahí sí preguntale cómo quiere pagar.
+3. Cuando el cliente elija el medio de pago, ahí sí entregá tus datos bancarios Y después de eso includí el código VENTA_CERRADA.
+4. Cuando el cliente confirme que realizó la transferencia o que irá a retirar, dale un mensaje de confirmación final.
 
-REGLA OBLIGATORIA DEL SISTEMA (CRÍTICO):
-Siempre que se cierre una venta (es decir, el cliente ya eligió qué comprar y cómo pagar, y tú estás confirmando el pedido), DEBES incluir al final de tu respuesta, en una línea separada, el siguiente bloque exacto, reemplazando la descripción, método de pago (transfer o cash) y EL MONTO TOTAL:
-[VENTA_CERRADA: (descripción de los items) | (transfer/cash) | (monto total)]
+REGLAS CRÍTICAS:
+- NO des datos bancarios hasta que el cliente confirme que quiere comprar. Si pregunta precio, dá el precio y espera confirmación.
+- El código VENTA_CERRADA debe ir SOLO después de dar los datos de pago, cuando el cliente ya eligió cómo pagar.
+- No pongas VENTA_CERRADA si el cliente solo está preguntando información o no confirmó la compra.
+
+Formato para VENTA_CERRADA (solo cuando la venta está realmente cerrada):
+[VENTA_CERRADA: (descripción) | (transfer/cash) | (monto)]
 
 Ejemplo correcto:
-[VENTA_CERRADA: 2 docenas de media lunas de manteca | transfer | 8500]
-
-No agregues este código si todavía estás preguntando detalles o si el cliente no confirmó. Solo ponlo en el mensaje final de confirmación de la venta.";
+[VENTA_CERRADA: 10 souvenirs de Ben10 | transfer | 1500]";
         }
 
         return $prompt;

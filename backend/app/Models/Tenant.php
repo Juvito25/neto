@@ -41,6 +41,9 @@ class Tenant extends Model implements Authenticatable
         'mp_subscription_id',
         'mp_customer_id',
         'subscribed_at',
+        'subscription_ends_at',
+        'trial_remaining_days',
+        'sales_count',
     ];
 
     protected $hidden = [
@@ -53,6 +56,9 @@ class Tenant extends Model implements Authenticatable
         'trial_ends_at' => 'datetime',
         'messages_used' => 'integer',
         'onboarding_completed' => 'boolean',
+        'subscription_ends_at' => 'date',
+        'trial_remaining_days' => 'integer',
+        'sales_count' => 'integer',
     ];
 
     protected static function booted(): void
@@ -87,25 +93,56 @@ class Tenant extends Model implements Authenticatable
 
     public function isActive(): bool
     {
-        $plan = $this->plan;
-        if (!$plan) {
-            return $this->trial_ends_at && $this->trial_ends_at->isFuture();
+        // Trial activo
+        if ($this->subscription_status === 'trial') {
+            return !$this->isTrialExpired();
         }
-        return $plan->name !== 'starter' ||
-               ($this->trial_ends_at && $this->trial_ends_at->isFuture());
+        // Suscripción activa
+        if ($this->subscription_status === 'active') {
+            return !$this->isSubscriptionExpired();
+        }
+        return false;
+    }
+
+    public function isSubscriptionExpired(): bool
+    {
+        return $this->subscription_status === 'active'
+            && $this->subscription_ends_at !== null
+            && \Carbon\Carbon::parse($this->subscription_ends_at)->isPast();
+    }
+
+    public function daysRemainingInSubscription(): int
+    {
+        if (!$this->subscription_ends_at) {
+            return 0;
+        }
+        $endsAt = \Carbon\Carbon::parse($this->subscription_ends_at);
+        if ($endsAt->isPast()) {
+            return 0;
+        }
+        return max(0, now()->diffInDays($endsAt));
     }
 
     public function isTrialExpired(): bool
     {
         return $this->subscription_status === 'trial'
-            && $this->trial_ends_at !== null
-            && $this->trial_ends_at->isPast();
+            && ($this->trial_remaining_days <= 0 || ($this->trial_ends_at !== null && $this->trial_ends_at->isPast()));
     }
 
     public function canUseBot(): bool
     {
-        return $this->subscription_status === 'active' || 
-               ($this->subscription_status === 'trial' && !$this->isTrialExpired());
+        // Trial activo
+        if ($this->subscription_status === 'trial') {
+            return !$this->isTrialExpired();
+        }
+        
+        // Suscripción activa
+        if ($this->subscription_status === 'active') {
+            return !$this->isSubscriptionExpired();
+        }
+        
+        // Expired o cualquier otro estado
+        return false;
     }
 
     public function hasReachedLimit(): bool
@@ -129,6 +166,12 @@ class Tenant extends Model implements Authenticatable
 
     public function daysRemainingInTrial(): int
     {
+        if ($this->subscription_status !== 'trial') {
+            return 0;
+        }
+        if ($this->trial_remaining_days !== null) {
+            return max(0, (int) $this->trial_remaining_days);
+        }
         if (!$this->trial_ends_at) {
             return 0;
         }

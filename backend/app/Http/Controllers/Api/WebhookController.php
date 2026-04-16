@@ -46,9 +46,8 @@ class WebhookController extends Controller
             'body_keys' => array_keys($request->all()),
         ]);
         
-        // временно allow any request from Evolution container
-        // TODO: properly configure Evolution API to send apikey
-        $isFromEvolution = in_array($request->ip(), ['172.18.0.5', '172.18.0.6', '172.18.0.7']);
+        // Allow requests from Evolution container (multiple IPs for redundancy)
+        $isFromEvolution = in_array($request->ip(), ['172.18.0.1', '172.18.0.2', '172.18.0.3', '172.18.0.4', '172.18.0.5', '172.18.0.6', '172.18.0.7', '172.18.0.8']);
         
         if (!$isFromEvolution && $providedKey !== $evolutionKey) {
             Log::warning('Webhook Security: Invalid apikey', [
@@ -91,10 +90,26 @@ class WebhookController extends Controller
             return response()->json(['status' => 'ok']);
         }
 
+        // First try exact match
         $instance = WhatsappInstance::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
             ->where('instance_name', $instanceName)
             ->first();
 
+        // If no exact match, try prefix match (handles timestamp differences)
+        if (!$instance && strpos($instanceName, 'neto_') === 0) {
+            $tenantUuid = preg_replace('/_\\d+$/', '', $instanceName); // Remove timestamp suffix
+            $instance = WhatsappInstance::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
+                ->where('instance_name', 'like', $tenantUuid . '_%')
+                ->first();
+            
+            Log::debug('Fallback to prefix match', [
+                'tenantUuid' => $tenantUuid,
+                'found' => $instance ? $instance->id : 'null'
+            ]);
+        }
+
+        Log::info('Instance found', ['instance' => $instance ? $instance->id : 'null']);
+        
         if (!$instance) {
             return response()->json(['status' => 'ok']);
         }
@@ -130,7 +145,7 @@ class WebhookController extends Controller
             return response()->json(['status' => 'Connection updated']);
         }
 
-        if (isset($payload['event']) && $payload['event'] === 'messages.upsert') {
+        if (isset($payload['event']) && in_array($payload['event'], ['messages.upsert', 'MESSAGES_UPSERT'])) {
             // Evolution API v2 format: data can be a single message or array of messages
             $data = $payload['data'] ?? [];
             

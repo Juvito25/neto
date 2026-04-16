@@ -1,6 +1,6 @@
 <template>
   <transition name="slide-down">
-    <div v-if="bannerVisible" class="trial-banner" :class="bannerClass">
+    <div v-show="showBanner" class="trial-banner" :class="bannerClass">
       <div class="banner-content">
         <span class="banner-icon">{{ bannerIcon }}</span>
         <span class="banner-text">{{ bannerText }}</span>
@@ -25,8 +25,7 @@ const router = useRouter()
 const tenant = ref(null)
 const trialEndsAt = ref(null)
 const subscriptionStatus = ref(null)
-const dismissedToday = ref(false)
-const bannerVisible = ref(true)
+const showBanner = ref(true)
 
 const fetchBillingStatus = async () => {
   try {
@@ -35,31 +34,38 @@ const fetchBillingStatus = async () => {
     trialEndsAt.value = data.tenant.trial_ends_at
     subscriptionStatus.value = data.tenant.subscription_status
     
-    // Check if banner should be visible
+    // Check if banner was dismissed today
     const dismissedDate = localStorage.getItem('trial_banner_dismissed')
     const today = new Date().toDateString()
-    if (dismissedDate === today) {
-      dismissedToday.value = true
-      bannerVisible.value = false
-    }
-    if (subscriptionStatus.value === 'active') {
-      bannerVisible.value = false
-    }
+    dismissedToday.value = dismissedDate === today
   } catch (e) {
     console.error('Error fetching billing status:', e)
   }
 }
 
 const daysRemaining = computed(() => {
+  // Use days_remaining from API if available
+  if (tenant.value?.days_remaining !== undefined && tenant.value?.days_remaining !== null) {
+    return Math.max(0, parseInt(tenant.value.days_remaining))
+  }
+  // Fallback to trial_remaining_days
+  if (tenant.value?.trial_remaining_days !== undefined && tenant.value?.trial_remaining_days !== null) {
+    return Math.max(0, parseInt(tenant.value.trial_remaining_days))
+  }
+  // Fallback to trial_ends_at
   if (!trialEndsAt.value) return 0
   const diff = new Date(trialEndsAt.value) - new Date()
   return Math.ceil(diff / 86400000)
 })
 
-const showBanner = computed(() => {
+const bannerVisible = computed(() => {
+  // Don't show if subscription is active
   if (subscriptionStatus.value === 'active') return false
-  if (subscriptionStatus.value === 'expired') return true
+  // Show if expired (subscription_status is 'expired' OR days <= 0)
+  if (subscriptionStatus.value === 'expired' || daysRemaining.value <= 0) return true
+  // Show if in trial with days remaining
   if (subscriptionStatus.value === 'trial' && daysRemaining.value > 0) return true
+  // Don't show if dismissed today
   if (dismissedToday.value) return false
   return false
 })
@@ -104,10 +110,31 @@ const dismissable = computed(() => {
 })
 
 const dismiss = () => {
-  dismissedToday.value = true
+  console.log('dismiss clicked')
+  showBanner.value = false
   const today = new Date().toDateString()
   localStorage.setItem('trial_banner_dismissed', today)
-  bannerVisible.value = false
+}
+
+const checkBannerVisibility = () => {
+  if (subscriptionStatus.value === 'active') {
+    showBanner.value = false
+    return
+  }
+  if (subscriptionStatus.value === 'expired' || daysRemaining.value <= 0) {
+    showBanner.value = true
+  } else if (subscriptionStatus.value === 'trial' && daysRemaining.value > 0) {
+    showBanner.value = true
+  } else {
+    showBanner.value = false
+  }
+  
+  // Don't show if dismissed today
+  const dismissedDate = localStorage.getItem('trial_banner_dismissed')
+  const today = new Date().toDateString()
+  if (dismissedDate === today) {
+    showBanner.value = false
+  }
 }
 
 const goToPlans = () => {
@@ -116,6 +143,7 @@ const goToPlans = () => {
 
 onMounted(async () => {
   await fetchBillingStatus()
+  checkBannerVisibility()
 })
 </script>
 

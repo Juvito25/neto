@@ -12,7 +12,8 @@ class DashboardController extends Controller
 {
     public function metrics(Request $request)
     {
-        $tenantId = $request->user()->tenant->id;
+        $tenant = $request->user()->tenant;
+        $tenantId = $tenant->id;
 
         $messagesReceived = Message::where('tenant_id', $tenantId)
             ->where('direction', 'in')
@@ -34,7 +35,8 @@ class DashboardController extends Controller
             ->where('status', 'pending')
             ->sum('total_amount');
         
-        $salesCount = Sale::where('tenant_id', $tenantId)
+        // Use tenant's live counter, fallback to query if needed
+        $salesCount = $tenant->sales_count ?? Sale::where('tenant_id', $tenantId)
             ->where('status', 'confirmed')
             ->count();
 
