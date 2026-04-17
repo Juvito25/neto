@@ -139,7 +139,7 @@ const handleSubmit = async () => {
         </div>
 
         <button type="submit" class="btn-submit" :disabled="loading">
-          <span v-if="!loading">{{ isLogin ? 'Ingresar' : 'Crear Cuenta' }}</span>
+          <span v-if="!loading">{{ isLogin ? 'Iniciar sesión' : 'Crear Cuenta' }}</span>
           <span v-else class="loader"></span>
         </button>
 
