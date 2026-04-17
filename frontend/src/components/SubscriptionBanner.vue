@@ -1,6 +1,6 @@
 <template>
   <transition name="slide-down">
-    <div v-if="bannerVisible" class="subscription-banner" :class="bannerClass">
+    <div v-if="showBanner" class="subscription-banner" :class="bannerClass">
       <div class="banner-content">
         <span class="banner-icon">{{ bannerIcon }}</span>
         <span class="banner-text">{{ bannerText }}</span>
@@ -25,6 +25,7 @@ const router = useRouter()
 const subscriptionEndsAt = ref(null)
 const subscriptionStatus = ref(null)
 const dismissedToday = ref(false)
+const showBanner = ref(true)
 
 const fetchBillingStatus = async () => {
   try {
@@ -48,15 +49,21 @@ const daysRemaining = computed(() => {
   return Math.ceil(diff / 86400000)
 })
 
-const bannerVisible = computed(() => {
+const checkBannerVisibility = () => {
   // Only show if subscription is active
-  if (subscriptionStatus.value !== 'active') return false
+  if (subscriptionStatus.value !== 'active') {
+    showBanner.value = false
+    return
+  }
   // Show if expired or within 7 days
-  if (daysRemaining.value <= 7) return true
-  // Don't show if dismissed today
-  if (dismissedToday.value) return false
-  return false
-})
+  if (daysRemaining.value > 7) {
+    showBanner.value = false
+  } else if (dismissedToday.value) {
+    showBanner.value = false
+  } else {
+    showBanner.value = true
+  }
+}
 
 const showCta = computed(() => {
   return daysRemaining.value <= 7
@@ -99,9 +106,9 @@ const dismissable = computed(() => {
 
 const dismiss = () => {
   dismissedToday.value = true
+  showBanner.value = false
   const today = new Date().toDateString()
   localStorage.setItem('subscription_banner_dismissed', today)
-  bannerVisible.value = false
 }
 
 const goToPlans = () => {
@@ -110,6 +117,7 @@ const goToPlans = () => {
 
 onMounted(async () => {
   await fetchBillingStatus()
+  checkBannerVisibility()
 })
 </script>
 

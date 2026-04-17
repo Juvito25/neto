@@ -6,7 +6,28 @@
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Geist+Mono&display=swap');
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light;
+  }
+  html {
+    filter: none !important;
+    }
+  html:has(#-dark-reader) {
+    filter: none !important;
+  }
+}
+
+/* Disable Dark Reader extension */
+html[data-darkreader-slot=""] {
+  filter: none !important;
+}
+html #darkreader {
+  display: none !important;
+}
+html[style*="DarkReader"] {
+  filter: none !important;
+}
 
 :root {
   /* Brand Colors */
@@ -52,6 +73,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color-scheme: light;
 }
 
 a {

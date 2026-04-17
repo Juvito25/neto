@@ -58,18 +58,6 @@ const daysRemaining = computed(() => {
   return Math.ceil(diff / 86400000)
 })
 
-const bannerVisible = computed(() => {
-  // Don't show if subscription is active
-  if (subscriptionStatus.value === 'active') return false
-  // Show if expired (subscription_status is 'expired' OR days <= 0)
-  if (subscriptionStatus.value === 'expired' || daysRemaining.value <= 0) return true
-  // Show if in trial with days remaining
-  if (subscriptionStatus.value === 'trial' && daysRemaining.value > 0) return true
-  // Don't show if dismissed today
-  if (dismissedToday.value) return false
-  return false
-})
-
 const bannerClass = computed(() => {
   if (subscriptionStatus.value === 'expired') return 'danger'
   if (daysRemaining.value <= 3) return 'warning'
