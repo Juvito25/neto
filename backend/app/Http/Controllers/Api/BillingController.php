@@ -91,9 +91,21 @@ class BillingController extends Controller
 
                 if ($tenant) {
                     if ($sub->status === 'authorized') {
+                        // Calcular subscription_ends_at considerando días de trial restantes
+                        $trialDaysRemaining = (int) $tenant->trial_remaining_days;
+                        $subscriptionDays = 30 + $trialDaysRemaining;
+                        
                         $tenant->update([
                             'subscription_status' => 'active',
                             'subscribed_at' => now(),
+                            'subscription_ends_at' => now()->addDays($subscriptionDays),
+                            'trial_remaining_days' => 0,
+                        ]);
+                        
+                        Log::info('Suscripción activada', [
+                            'tenant_id' => $tenant->id,
+                            'trial_days_used' => 7 - $trialDaysRemaining,
+                            'subscription_ends_at' => now()->addDays($subscriptionDays),
                         ]);
                     } elseif (in_array($sub->status, ['cancelled', 'paused'])) {
                         $tenant->update([
@@ -114,7 +126,11 @@ class BillingController extends Controller
             'tenant' => [
                 'subscription_status' => $tenant->subscription_status,
                 'trial_ends_at' => $tenant->trial_ends_at,
-                'days_remaining' => $tenant->daysRemainingInTrial(),
+                'trial_remaining_days' => $tenant->trial_remaining_days,
+                'subscription_ends_at' => $tenant->subscription_ends_at,
+                'days_remaining' => $tenant->subscription_status === 'trial' 
+                    ? $tenant->daysRemainingInTrial() 
+                    : $tenant->daysRemainingInSubscription(),
             ],
         ]);
     }

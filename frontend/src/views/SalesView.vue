@@ -81,13 +81,10 @@
 
         <!-- Empty State -->
         <div v-else class="empty-state">
-          <div class="empty-isotype">
-            <div class="isotype-bar bar-1"></div>
-            <div class="isotype-bar bar-2"></div>
-            <div class="isotype-bar bar-3"></div>
-          </div>
-          <h3>No hay ventas aún</h3>
-          <p>El bot registrará automáticamente cada venta que cierre en el chat.</p>
+          <EmptyState>
+            <h3>No hay ventas aún</h3>
+            <p>El bot registrará automáticamente cada venta que cierre en el chat.</p>
+          </EmptyState>
         </div>
       </div>
     </div>
@@ -98,6 +95,7 @@
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { useSalesStore } from '@/stores/sales'
+import EmptyState from '@/components/EmptyState.vue'
 
 const salesStore = useSalesStore()
 const sales = ref([])
@@ -412,26 +410,6 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
 }
-
-.empty-isotype {
-  width: 64px;
-  height: 48px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 24px;
-}
-
-.isotype-bar {
-  height: 10px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 2px 8px 8px 2px;
-}
-
-.bar-1 { width: 100%; border-color: var(--color-primary-10); }
-.bar-2 { width: 80%; border-color: var(--color-primary-10); }
-.bar-3 { width: 60%; border-color: var(--color-primary-10); }
 
 .empty-state h3 {
   font-size: 18px;

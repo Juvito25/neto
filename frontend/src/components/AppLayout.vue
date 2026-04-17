@@ -1,6 +1,7 @@
 <template>
   <div class="app-wrapper">
     <TrialBanner />
+    <SubscriptionBanner />
     <OnboardingWelcome />
 
     <div class="app-layout">
@@ -60,6 +61,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useSalesStore } from '@/stores/sales'
 import TrialBanner from '@/components/TrialBanner.vue'
+import SubscriptionBanner from '@/components/SubscriptionBanner.vue'
 import OnboardingWelcome from '@/components/OnboardingWelcome.vue'
 import logoBlue from '@/assets/branding/media__1776087843743.png'
 import logoGreen from '@/assets/branding/media__1776087843817.png'
