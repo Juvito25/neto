@@ -36,3 +36,7 @@ bootstrap/cache/
 backend/app/Console/
 backend/html/
 backend/database/migrations/2026_04_10_*.php
+
+# Frontend build
+frontend/dist/
+frontend/node_modules/
