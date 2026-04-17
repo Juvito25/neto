@@ -47,7 +47,7 @@ class WebhookController extends Controller
         ]);
         
         // Allow requests from Evolution container (multiple IPs for redundancy)
-        $isFromEvolution = in_array($request->ip(), ['172.18.0.1', '172.18.0.2', '172.18.0.3', '172.18.0.4', '172.18.0.5', '172.18.0.6', '172.18.0.7', '172.18.0.8']);
+        $isFromEvolution = in_array($request->ip(), ['172.18.0.1', '172.18.0.2', '172.18.0.3', '172.18.0.4', '172.18.0.5', '172.18.0.6', '172.18.0.7', '172.18.0.8', '172.18.0.9', '172.18.0.10']);
         
         if (!$isFromEvolution && $providedKey !== $evolutionKey) {
             Log::warning('Webhook Security: Invalid apikey', [

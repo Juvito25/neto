@@ -173,9 +173,17 @@
                 </div>
                 <div class="ws-info">
                   <h4>Bot Desconectado</h4>
-                  <p>Tu WhatsApp puede responder de forma automática. Vinculá tu número para activar la IA.</p>
+                  <p v-if="subscriptionStatus === 'expired'">Tu suscripción venció. Renová tu plan para usar el bot.</p>
+                  <p v-else-if="isTrialExpired">Tu período de prueba venció. Activá un plan para usar el bot.</p>
+                  <p v-else>Tu WhatsApp puede responder de forma automática. Vinculá tu número para activar la IA.</p>
                 </div>
-                <button @click="connectWhatsApp" class="btn btn-primary btn-sm">Vincular Dispositivo</button>
+                <button 
+                  @click="connectWhatsApp" 
+                  class="btn btn-primary btn-sm"
+                  :disabled="!canUseBot"
+                >
+                  {{ !canUseBot ? 'Plan inactivo' : 'Vincular Dispositivo' }}
+                </button>
               </div>
             </div>
           </section>
@@ -204,7 +212,7 @@
 
               <div class="usage-section">
                 <div class="usage-labels">
-                  <span>Mensajes este mes</span>
+                  <span>Tokens IA este mes</span>
                   <span>{{ tenant?.messages_used || 0 }} / {{ tenant?.plan?.messages_limit || 1000 }}</span>
                 </div>
                 <div class="progress-bar-container">
@@ -288,6 +296,34 @@ const progressPercent = computed(() => {
   return Math.min(100, (tenant.value.messages_used / limit) * 100)
 })
 
+const subscriptionStatus = computed(() => {
+  return tenant.value?.subscription_status || 'trial'
+})
+
+const isTrialExpired = computed(() => {
+  if (subscriptionStatus.value !== 'trial') return false
+  if (!tenant.value?.trial_remaining_days) {
+    return tenant.value?.trial_ends_at && new Date(tenant.value.trial_ends_at) < new Date()
+  }
+  return tenant.value.trial_remaining_days <= 0
+})
+
+const isSubscriptionExpired = computed(() => {
+  if (subscriptionStatus.value !== 'active') return false
+  if (!tenant.value?.subscription_ends_at) return false
+  return new Date(tenant.value.subscription_ends_at) < new Date()
+})
+
+const canUseBot = computed(() => {
+  if (subscriptionStatus.value === 'trial') {
+    return !isTrialExpired.value
+  }
+  if (subscriptionStatus.value === 'active') {
+    return !isSubscriptionExpired.value
+  }
+  return false
+})
+
 const loadData = async () => {
   try {
     const { data } = await axios.get('/tenant')
@@ -312,18 +348,16 @@ const loadWhatsAppStatus = async () => {
   try {
     const { data } = await axios.get('/whatsapp/status')
     const wasConnected = whatsappStatus.value === 'connected'
-    whatsappStatus.value = data.status
     
-    if (whatsappStatus.value === 'connecting' && !qrCode.value) {
-      fetchQRCode()
-    }
-    
-    if (whatsappStatus.value === 'connected') {
+    // Only update to connected, otherwise keep as disconnected until user clicks
+    if (data.status === 'connected') {
+      whatsappStatus.value = 'connected'
       qrCode.value = null
       if (!wasConnected) {
         toast.value = { show: true, message: '¡WhatsApp conectado! Tu bot está activo 🤖', type: 'success' }
       }
     }
+    // Don't auto-show connecting state - user must click button first
   } catch (e) {
     console.error('Error loading WhatsApp status:', e)
   }
@@ -365,11 +399,17 @@ const connectWhatsApp = async () => {
   try {
     loadingWhatsApp.value = true
     whatsappStatus.value = 'connecting'
+    
+    // First, initiate the connection
     await axios.post('/whatsapp/connect')
+    
+    // Then fetch the QR code
     qrCode.value = null
     await fetchQRCode()
   } catch (e) {
     console.error('Error connecting WhatsApp:', e)
+    whatsappStatus.value = 'disconnected'
+    toast.value = { show: true, message: 'Error al conectar WhatsApp', type: 'error' }
   } finally {
     loadingWhatsApp.value = false
   }
@@ -611,13 +651,27 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 .ws-info { flex: 1; }
 
-.ws-loading { text-align: center; padding: 20px; }
+.ws-loading { 
+  text-align: center; 
+  padding: 40px 20px; 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
 .spinner {
-  width: 40px; height: 40px; border: 3px solid var(--color-primary-10); border-top-color: var(--color-primary);
-  border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+  width: 40px; height: 40px;
+  border: 3px solid rgba(0, 82, 204, 0.15);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: pulse 1s ease-in-out infinite;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.6; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.6; }
+}
 
 .ws-qr-container { text-align: center; }
 .ws-qr-header { margin-bottom: 24px; }

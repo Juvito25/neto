@@ -60,7 +60,7 @@
                 <td>
                   <div class="contact-cell">
                     <div class="contact-avatar" :style="{ backgroundColor: getAvatarColor(contact.phone) }">
-                      {{ getInitials(contact.name || contact.phone) }}
+                      {{ getInitials(contact.name, contact.phone) }}
                     </div>
                     <div class="contact-name-info">
                       <p class="contact-name">{{ contact.name || 'Desconocido' }}</p>
@@ -82,13 +82,10 @@
           </table>
 
           <div v-else class="empty-state">
-            <div class="empty-isotype">
-              <div class="isotype-bar bar-1"></div>
-              <div class="isotype-bar bar-2"></div>
-              <div class="isotype-bar bar-3"></div>
-            </div>
-            <p class="empty-text">Aún no hay conversaciones.</p>
-            <p class="empty-subtext">Conectá WhatsApp para empezar a automatizar tus ventas.</p>
+            <EmptyState>
+              <p class="empty-text">Aún no hay conversaciones.</p>
+              <p class="empty-subtext">Conectá WhatsApp para empezar a automatizar tus ventas.</p>
+            </EmptyState>
           </div>
         </div>
       </section>
@@ -132,6 +129,7 @@ import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import OnboardingChecklist from '@/components/OnboardingChecklist.vue'
+import EmptyState from '@/components/EmptyState.vue'
 
 const router = useRouter()
 const tenant = ref(null)
@@ -191,8 +189,9 @@ const formatCurrency = (val) => {
   return val.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
-const getInitials = (name) => {
-  if (!name) return '?'
+const getInitials = (name, phone) => {
+  if (!name && !phone) return '?'
+  if (!name) return phone ? phone.slice(-2) : '?'
   return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
 }
 
@@ -635,36 +634,11 @@ const goToConversation = (contactId) => {
 
 /* Empty State */
 .empty-state {
-  padding: 64px 32px;
+  padding: 80px 32px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-
-.empty-isotype {
-  width: 64px;
-  height: 48px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 24px;
-}
-
-.isotype-bar {
-  height: 10px;
-  background: var(--color-primary-10);
-  border-radius: 2px 8px 8px 2px;
-}
-
-.bar-1 { width: 100%; animation: staggerBar 1.5s infinite 0s; }
-.bar-2 { width: 80%; animation: staggerBar 1.5s infinite 0.2s; }
-.bar-3 { width: 60%; animation: staggerBar 1.5s infinite 0.4s; }
-
-@keyframes staggerBar {
-  0% { transform: scaleX(1); opacity: 0.5; }
-  50% { transform: scaleX(1.1); opacity: 1; }
-  100% { transform: scaleX(1); opacity: 0.5; }
 }
 
 .empty-text {

@@ -35,8 +35,8 @@ class DashboardController extends Controller
             ->where('status', 'pending')
             ->sum('total_amount');
         
-        // Use tenant's live counter, fallback to query if needed
-        $salesCount = $tenant->sales_count ?? Sale::where('tenant_id', $tenantId)
+        // Always query confirmed sales from database to stay in sync
+        $salesCount = Sale::where('tenant_id', $tenantId)
             ->where('status', 'confirmed')
             ->count();
 

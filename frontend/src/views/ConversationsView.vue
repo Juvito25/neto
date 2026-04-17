@@ -19,7 +19,7 @@
           @click="selectContact(contact)"
         >
           <div class="contact-avatar" :style="{ backgroundColor: getAvatarColor(contact.phone) }">
-            {{ getInitials(contact.name || contact.phone) }}
+            {{ getInitials(contact.name, contact.phone) }}
           </div>
           <div class="contact-content">
             <div class="contact-meta">
@@ -43,7 +43,7 @@
         <header class="chat-header">
           <div class="header-contact-info">
             <div class="contact-avatar-sm" :style="{ backgroundColor: getAvatarColor(selectedContact.phone) }">
-              {{ getInitials(selectedContact.name || selectedContact.phone) }}
+              {{ getInitials(selectedContact.name, selectedContact.phone) }}
             </div>
             <div class="header-text">
               <h3 class="header-name">{{ selectedContact.name || 'Desconocido' }}</h3>
@@ -80,11 +80,7 @@
         <!-- Chat Footer -->
         <footer class="chat-footer">
           <div class="ai-status">
-            <div class="isotype-mini">
-              <div class="mini-bar"></div>
-              <div class="mini-bar"></div>
-              <div class="mini-bar"></div>
-            </div>
+            <img src="/logos/neto-logo.svg" alt="NETO" class="neto-logo-mini" />
             <span>Respondido automáticamente por NETO AI</span>
           </div>
         </footer>
@@ -92,13 +88,10 @@
 
       <!-- Empty State -->
       <div v-else class="empty-chat-state">
-        <div class="empty-isotype">
-          <div class="isotype-bar bar-1"></div>
-          <div class="isotype-bar bar-2"></div>
-          <div class="isotype-bar bar-3"></div>
-        </div>
-        <h3>Tus conversaciones aparecerán acá</h3>
-        <p>Seleccioná un contacto de la izquierda para ver el historial y las respuestas automáticas.</p>
+        <EmptyState>
+          <h3>Tus conversaciones aparecerán acá</h3>
+          <p>Seleccioná un contacto de la izquierda para ver el historial y las respuestas automáticas.</p>
+        </EmptyState>
       </div>
     </main>
   </div>
@@ -108,6 +101,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
+import EmptyState from '@/components/EmptyState.vue'
 
 const route = useRoute()
 const search = ref('')
@@ -126,7 +120,8 @@ const filteredContacts = computed(() => {
   )
 })
 
-const getInitials = (name) => {
+const getInitials = (name, phone) => {
+  if (!name && !phone) return '?'
   if (!name) return '?'
   return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
 }
@@ -523,6 +518,11 @@ onUnmounted(() => {
   width: 16px;
 }
 
+.neto-logo-mini {
+  height: 14px;
+  width: auto;
+}
+
 .mini-bar {
   height: 3px;
   background: var(--color-primary);
@@ -554,15 +554,6 @@ onUnmounted(() => {
   color: var(--color-text-muted);
   max-width: 320px;
   font-size: 14px;
-}
-
-.empty-isotype {
-  width: 80px;
-  height: 60px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 32px;
 }
 
 .isotype-bar {
