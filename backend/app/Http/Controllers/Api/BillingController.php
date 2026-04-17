@@ -100,6 +100,7 @@ class BillingController extends Controller
                             'subscribed_at' => now(),
                             'subscription_ends_at' => now()->addDays($subscriptionDays),
                             'trial_remaining_days' => 0,
+                            'messages_used' => 0,
                         ]);
                         
                         Log::info('Suscripción activada', [
