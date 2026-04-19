@@ -7,24 +7,11 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'NETO - Tu vendedorvirtual para WhatsApp',
-  description: 'Tu vendedor que never duerme. Responde 24/7, conoce tu stock y cierra ventas por WhatsApp. 7 días gratis.',
+  title: 'NETO - Tu vendedor virtual para WhatsApp',
+  description: 'Tu vendedor que nunca duerme. Responde 24/7, conoce tu stock y cierra ventas por WhatsApp. 7 días gratis.',
   generator: 'NETO',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
+    icon: '/favicon.svg',
     apple: '/apple-icon.png',
   },
 }

@@ -29,7 +29,7 @@ export function HeroSection() {
             
             {/* Subtitle */}
             <p className="mt-6 text-pretty text-lg text-muted-foreground md:text-xl lg:max-w-xl">
-              Tu vendedor虚拟 que nunca duerme, nunca se enferma y conoce cada producto de tu stock. 
+              Tu vendedor virtual que nunca duerme, nunca se enferma y conoce cada producto de tu stock. 
               Responde en 30 segundos, cierra ventas y te hace cobrar.
             </p>
             

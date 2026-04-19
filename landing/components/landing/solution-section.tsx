@@ -62,13 +62,13 @@ const features = [
     preview: (
       <div className="mt-4 overflow-hidden rounded-2xl bg-white/80 p-4 shadow-sm backdrop-blur">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#25D366]">
-            <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17.498 14.382c-.301-.15-1.767-.867-2.041-.966-.273-.101-.473-.15-.673.15-.197.295-.铜币.964.241 1.2.275.226 1.027.6 1.272.72.275.136.463.151.673.045.301-.15 1.676-1.917 1.676-1.917s-.351-.302-.673-.453c-.321-.15-.601-.225-.673-.353-.074-.15-.074-.3-.052-.45.023-.151.226-.301.452-.45.301-.226.452-.226.601-.226s.351-.025.603.15c.25.176.476.451.476.451s-.351.226-.476.301z"/>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#008A45]">
+            <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.498 14.382c-.301-.15-1.767-.867-2.041-.966-.273-.101-.473-.15-.673.15-.197.295-. copper.964.241 1.2.275.226 1.027.6 1.272.72.275.136.463.151.673.045.301-.15 1.676-1.917 1.676-1.917s-.351-.302-.673-.453c-.321-.15-.601-.225-.673-.353-.074-.15-.074-.3-.052-.45.023-.151.226-.301.452-.45.301-.226.452-.226.601-.226s.351-.025.603.15c.25.176.476.451.476.451s-.351.226-.476.301z"/>
             </svg>
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">WhatsApp es todo</p>
+            <p className="text-sm font-semibold text-gray-900">WhatsApp es todo</p>
             <p className="text-xs text-gray-500">El cliente no instala nada</p>
           </div>
         </div>
