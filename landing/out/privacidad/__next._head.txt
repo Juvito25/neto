@@ -1,0 +1,6 @@
+1:"$Sreact.fragment"
+2:I[46608,["/_next/static/chunks/0bjfudee_658~.js","/_next/static/chunks/0gkdb-6gfrq38.js"],"ViewportBoundary"]
+3:I[46608,["/_next/static/chunks/0bjfudee_658~.js","/_next/static/chunks/0gkdb-6gfrq38.js"],"MetadataBoundary"]
+4:"$Sreact.suspense"
+5:I[91530,["/_next/static/chunks/0bjfudee_658~.js","/_next/static/chunks/0gkdb-6gfrq38.js"],"IconMark"]
+0:{"rsc":["$","$1","h",{"children":[null,["$","$L2",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$L3",null,{"children":["$","$4",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"NETO - Tu vendedor virtual para WhatsApp"}],["$","meta","1",{"name":"description","content":"Tu vendedor que nunca duerme. Responde 24/7, conoce tu stock y cierra ventas por WhatsApp. 7 días gratis."}],["$","meta","2",{"name":"generator","content":"NETO"}],["$","link","3",{"rel":"icon","href":"/favicon.svg"}],["$","link","4",{"rel":"apple-touch-icon","href":"/apple-icon.png"}],["$","$L5","5",{}]]}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"koOUZQNDf7Efp_1afRUfF"}
