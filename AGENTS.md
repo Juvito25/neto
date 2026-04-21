@@ -136,3 +136,27 @@ docker-compose exec app composer require vendor/package
 ```bash
 docker-compose exec frontend npm install package
 ```
+
+## PRODUCCIÓN - IMPORTANTE
+
+### Dominios (NUNCA TOCAR UNA VEZ CONFIGURADO)
+
+- **https://netoia.cloud** → Landing page (Next.js estático)
+- **https://app.netoia.cloud** → App NETO (Vue.js frontend + Laravel API)
+
+**Regla de oro:** 
+- netoia.cloud = Landing (información, marketing)
+- app.netoia.cloud = Aplicación (registro, login, chatbot, WhatsApp)
+
+### Configuración de nginx
+
+```nginx
+# /etc/nginx/conf.d/landing.conf → netoia.cloud
+# /etc/nginx/conf.d/app.conf → app.netoia.cloud
+```
+
+### Variables de entorno críticas
+
+```bash
+APP_KEY=base64:sGu6Rp8F4kdPpZjIPQVSKnM1zIiOCzxoND1qIlbFS/I=
+```

@@ -44,7 +44,7 @@ services:
       PLAN_STARTER_LIMIT: "500"
       PLAN_PRO_LIMIT: "2000"
       PLAN_BUSINESS_LIMIT: "999999"
-      TRIAL_DAYS: "14"
+      TRIAL_DAYS: "7"
     volumes:
       - ../backend:/var/www/neto/backend:ro
       - backend_storage:/var/www/neto/backend/storage

@@ -43,6 +43,6 @@ return [
     'aliases' => Illuminate\Support\Facades\Facade::defaultAliases()->merge([
     ])->toArray(),
 
-    'trial_days' => env('TRIAL_DAYS', 14),
+    'trial_days' => env('TRIAL_DAYS', 7),
     'plan_pro_limit' => env('PLAN_PRO_LIMIT', 2000),
 ];
