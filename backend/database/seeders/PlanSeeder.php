@@ -16,13 +16,13 @@ class PlanSeeder extends Seeder
             'name' => 'starter',
             'display_name' => 'Plan Mensual MVP',
             'catalog_items_limit' => 1000,
-            'messages_limit' => 1000000, // Límite de mensajes (tokens o cantidad? El user dijo 1000 mensajes, pero en la DB parece ser tokens o cantidad dependiendo de la interpretación. El nombre dice messages_limit. Pongamos 1000 si son mensajes.)
+            'messages_limit' => 10000,
             'price_cents' => 1900,
             'currency' => 'USD',
             'trial_days' => 7,
             'features' => json_encode([
                 'Hasta 1000 productos',
-                '1000 mensajes por mes',
+                '10000 mensajes por mes',
                 'IA de respuesta automática',
                 'Ventas automatizadas',
                 'Soporte por WhatsApp'
