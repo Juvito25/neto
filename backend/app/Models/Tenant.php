@@ -61,11 +61,6 @@ class Tenant extends Model implements Authenticatable
         'sales_count' => 'integer',
     ];
 
-    protected static function booted(): void
-    {
-        static::addGlobalScope(new TenantScope);
-    }
-
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);

@@ -33,6 +33,7 @@ class AuthController extends Controller
             'password.min' => 'La contraseña debe tener al menos 8 caracteres',
             'password.confirmed' => 'Las contraseñas no coinciden',
             'password_confirmation.required' => 'Debes confirmar la contraseña',
+            'password_confirmation.min' => 'La confirmación debe tener al menos 8 caracteres',
             'business_name.required' => 'El nombre del negocio es obligatorio',
             'business_name.min' => 'El nombre del negocio debe tener al menos 2 caracteres',
         ]);
@@ -40,6 +41,11 @@ class AuthController extends Controller
         return DB::transaction(function () use ($request) {
             // Obtener plan por defecto (starter)
             $defaultPlan = Plan::where('name', 'starter')->first();
+            
+            if (!$defaultPlan) {
+                \Illuminate\Support\Facades\Log::warning('AuthController: Starter plan not found in database, using defaults.');
+            }
+
             $trialDays = $defaultPlan ? $defaultPlan->trial_days : 14;
 
             $tenant = Tenant::create([
@@ -68,39 +74,48 @@ class AuthController extends Controller
             $evolutionUrl = config('services.evolution.url');
             $evolutionKey = config('services.evolution.key');
 
-            try {
-                $response = Http::withHeaders([
-                    'apikey' => $evolutionKey,
-                    'Content-Type' => 'application/json',
-                ])->post("{$evolutionUrl}/instance/create", [
-                    'instanceName' => $instanceName,
-                    'qrCode' => true,
-                ]);
-
-                if ($response->successful()) {
-                    $instance = WhatsappInstance::create([
-                        'tenant_id' => $tenant->id,
-                        'instance_name' => $instanceName,
-                        'status' => 'connecting',
-                    ]);
-
-                    $tenant->update([
-                        'whatsapp_instance_id' => $instance->id,
-                    ]);
-
-                    Http::withHeaders([
+            if ($evolutionUrl && $evolutionKey) {
+                try {
+                    $response = Http::withHeaders([
                         'apikey' => $evolutionKey,
                         'Content-Type' => 'application/json',
-                    ])->post("{$evolutionUrl}/webhook/set/{$instanceName}", [
-                        'url' => config('app.url') . '/api/webhooks/whatsapp',
-                        'webhookByEvents' => true,
-                        'webhookEvents' => ['messages.upsert', 'connection.update', 'qrcode'],
+                    ])->post("{$evolutionUrl}/instance/create", [
+                        'instanceName' => $instanceName,
+                        'qrCode' => true,
+                    ]);
+
+                    if ($response->successful()) {
+                        $instance = WhatsappInstance::create([
+                            'tenant_id' => $tenant->id,
+                            'instance_name' => $instanceName,
+                            'status' => 'connecting',
+                        ]);
+
+                        $tenant->update([
+                            'whatsapp_instance_id' => $instance->id,
+                        ]);
+
+                        Http::withHeaders([
+                            'apikey' => $evolutionKey,
+                            'Content-Type' => 'application/json',
+                        ])->post("{$evolutionUrl}/webhook/set/{$instanceName}", [
+                            'url' => config('app.url') . '/api/webhooks/whatsapp',
+                            'webhookByEvents' => true,
+                            'webhookEvents' => ['messages.upsert', 'connection.update', 'qrcode'],
+                        ]);
+                    } else {
+                        \Illuminate\Support\Facades\Log::error('AuthController: Evolution API returned error', [
+                            'status' => $response->status(),
+                            'body' => $response->body(),
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('AuthController: Failed to create WhatsApp instance', [
+                        'error' => $e->getMessage(),
                     ]);
                 }
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('AuthController: Failed to create WhatsApp instance', [
-                    'error' => $e->getMessage(),
-                ]);
+            } else {
+                \Illuminate\Support\Facades\Log::warning('AuthController: Evolution API URL or Key missing in config');
             }
 
             $token = $user->createToken('auth-token')->plainTextToken;

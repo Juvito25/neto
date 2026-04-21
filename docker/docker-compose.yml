@@ -34,6 +34,7 @@ services:
       APP_ENV: production
       APP_DEBUG: "false"
       APP_URL: https://app.netoia.cloud
+      APP_KEY: base64:sGu6Rp8F4kdPpZjIPQVSKnM1zIiOCzxoND1qIlbFS/I=
       PHP_FPM_LISTEN: "9000"
       MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN}
       MP_PUBLIC_KEY: ${MP_PUBLIC_KEY}
@@ -46,6 +47,8 @@ services:
       TRIAL_DAYS: "14"
     volumes:
       - ../backend:/var/www/neto/backend:ro
+      - backend_storage:/var/www/neto/backend/storage
+      - backend_cache:/var/www/neto/backend/bootstrap/cache
     networks:
       - neto_network
     depends_on:
@@ -70,6 +73,8 @@ services:
       PHP_FPM_LISTEN: "9000"
     volumes:
       - ../backend:/var/www/neto/backend:ro
+      - backend_storage:/var/www/neto/backend/storage
+      - backend_cache:/var/www/neto/backend/bootstrap/cache
     networks:
       - neto_network
     depends_on:
@@ -95,24 +100,37 @@ services:
       PHP_FPM_LISTEN: "9000"
     volumes:
       - ../backend:/var/www/neto/backend:ro
+      - backend_storage:/var/www/neto/backend/storage
+      - backend_cache:/var/www/neto/backend/bootstrap/cache
     networks:
       - neto_network
     depends_on:
       - postgres
       - redis
 
-  frontend:
-    build:
-      context: ../frontend
-      dockerfile: ../docker/frontend/Dockerfile
-    environment:
-      VITE_API_URL: https://app.netoia.cloud/api
-      VITE_WS_URL: wss://app.netoia.cloud
-      VITE_APP_NAME: NETO
+  nginx:
+    image: nginx:latest
     ports:
-      - "5173:5173"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ../frontend/dist:/var/www/neto/frontend:ro
+      - ../landing/out:/var/www/neto-landing:ro
     networks:
       - neto_network
+    depends_on:
+      - app
+
+  frontend:
+    image: nginx:alpine
+    volumes:
+      - ../frontend/dist:/usr/share/nginx/html:ro
+    networks:
+      - neto_network
+    profiles:
+      - dev
 
   evolution:
     image: evoapicloud/evolution-api:latest
@@ -131,3 +149,5 @@ networks:
 volumes:
   postgres_data:
   evolution_data:
+  backend_storage:
+  backend_cache:
