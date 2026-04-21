@@ -74,7 +74,7 @@ export function PricingSection() {
               </ul>
               
               {/* CTA */}
-              <a href="/signup" className="block mt-10">
+              <a href="https://app.netoia.cloud/register" className="block mt-10">
                 <Button 
                   size="lg" 
                   className="group h-14 w-full rounded-2xl bg-[#0052CC] text-lg font-semibold text-white shadow-lg shadow-[#0052CC]/25 transition-all hover:scale-[1.02] hover:bg-[#0052CC]/90 hover:shadow-xl hover:shadow-[#0052CC]/30"

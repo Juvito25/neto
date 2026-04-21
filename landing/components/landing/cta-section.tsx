@@ -29,7 +29,7 @@ export function CTASection() {
             </p>
             
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <a href="/signup">
+              <a href="https://app.netoia.cloud/register">
                 <Button 
                   size="lg" 
                   className="group h-14 w-full rounded-2xl bg-white px-8 text-lg font-semibold text-[#0052CC] shadow-lg transition-all hover:scale-105 hover:bg-white/90 sm:w-auto"

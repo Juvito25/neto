@@ -36,12 +36,12 @@ export function Header() {
 
         {/* Desktop CTA */}
         <div className="hidden items-center gap-3 md:flex">
-          <a href="/login">
+          <a href="https://app.netoia.cloud/login">
             <Button variant="ghost" className="text-sm font-medium text-gray-600">
               Ingresar
             </Button>
           </a>
-          <a href="/signup">
+          <a href="https://app.netoia.cloud/register">
             <Button className="rounded-xl bg-[#0052CC] px-5 font-semibold text-white shadow-md shadow-[#0052CC]/20">
               Empezar gratis
             </Button>
@@ -72,12 +72,12 @@ export function Header() {
               </a>
             ))}
             <hr className="my-2 border-gray-200" />
-            <a href="/login" className="w-full">
+            <a href="https://app.netoia.cloud/login" className="w-full">
               <Button variant="ghost" className="w-full justify-start px-4 text-sm font-medium">
                 Ingresar
               </Button>
             </a>
-            <a href="/signup" className="w-full">
+            <a href="https://app.netoia.cloud/register" className="w-full">
               <Button className="w-full rounded-xl bg-[#0052CC] font-semibold text-white shadow-md shadow-[#0052CC]/20">
                 Empezar gratis
               </Button>

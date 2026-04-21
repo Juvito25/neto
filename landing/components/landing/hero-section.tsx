@@ -35,7 +35,7 @@ export function HeroSection() {
             
             {/* CTAs */}
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:justify-start">
-              <a href="/signup">
+              <a href="https://app.netoia.cloud/register">
                 <Button 
                   size="lg" 
                   className="group h-14 w-full rounded-2xl bg-[#0052CC] px-8 text-lg font-semibold text-white shadow-lg shadow-[#0052CC]/25 transition-all hover:scale-105 hover:bg-[#0052CC]/90 hover:shadow-xl hover:shadow-[#0052CC]/30 sm:w-auto"
