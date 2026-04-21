@@ -45,6 +45,8 @@ services:
       PLAN_PRO_LIMIT: "2000"
       PLAN_BUSINESS_LIMIT: "999999"
       TRIAL_DAYS: "7"
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: neto_evolution_key
     volumes:
       - ../backend:/var/www/neto/backend:ro
       - backend_storage:/var/www/neto/backend/storage
