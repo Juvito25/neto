@@ -11,7 +11,7 @@ return [
         'key' => env('GROQ_API_KEY'),
     ],
     'evolution' => [
-        'url' => env('EVOLUTION_PUBLIC_URL', 'http://evolution:8080'),
+        'url' => env('EVOLUTION_PUBLIC_URL', 'http://neto_evolution:8080'),
         'key' => env('EVOLUTION_API_KEY'),
     ],
     'mercadopago' => [
