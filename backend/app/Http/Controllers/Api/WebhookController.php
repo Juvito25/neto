@@ -47,12 +47,15 @@ class WebhookController extends Controller
         ]);
         
         // Allow requests from Evolution container (multiple IPs for redundancy)
-        $isFromEvolution = in_array($request->ip(), ['172.18.0.1', '172.18.0.2', '172.18.0.3', '172.18.0.4', '172.18.0.5', '172.18.0.6', '172.18.0.7', '172.18.0.8', '172.18.0.9', '172.18.0.10']);
+        $requestIp = $request->ip();
+        
+        // Allow requests from Evolution container (multiple IPs for redundancy) and whole docker network
+        $isFromEvolution = str_starts_with($requestIp, '172.18.');
         
         if (!$isFromEvolution && $providedKey !== $evolutionKey) {
             Log::warning('Webhook Security: Invalid apikey', [
                 'provided' => substr($providedKey ?? 'null', 0, 5),
-                'ip' => $request->ip()
+                'ip' => $requestIp
             ]);
             return response()->json(['status' => 'ok']);
         }
@@ -96,13 +99,18 @@ class WebhookController extends Controller
             ->first();
 
         // If no exact match, try prefix match (handles timestamp differences)
-        if (!$instance && strpos($instanceName, 'neto_') === 0) {
-            $tenantUuid = preg_replace('/_\\d+$/', '', $instanceName); // Remove timestamp suffix
+        if (!$instance && (strpos($instanceName, 'neto_') === 0 || strpos($instanceName, 'neto-') === 0)) {
+            // Extract UUID - handle both hyphen and underscore as separators
+            $tenantUuid = preg_replace('/[_-]\d+$/', '', $instanceName); // Remove timestamp suffix
+            $tenantUuid = str_replace(['neto_', 'neto-'], '', $tenantUuid); // Remove prefix to get just UUID
+            
+            Log::debug('Extracted tenant UUID from instance name', ['tenantUuid' => $tenantUuid]);
+            
             $instance = WhatsappInstance::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
-                ->where('instance_name', 'like', $tenantUuid . '_%')
+                ->where('tenant_id', $tenantUuid)
                 ->first();
             
-            Log::debug('Fallback to prefix match', [
+            Log::debug('Fallback to tenant_id match', [
                 'tenantUuid' => $tenantUuid,
                 'found' => $instance ? $instance->id : 'null'
             ]);
@@ -111,6 +119,7 @@ class WebhookController extends Controller
         Log::info('Instance found', ['instance' => $instance ? $instance->id : 'null']);
         
         if (!$instance) {
+            Log::warning('Webhook: Instance not found in database', ['instanceName' => $instanceName]);
             return response()->json(['status' => 'ok']);
         }
 
@@ -129,12 +138,21 @@ class WebhookController extends Controller
 
         if (isset($payload['event']) && $payload['event'] === 'connection.update') {
             if (isset($payload['data']['state'])) {
+                $rawState = strtolower($payload['data']['state']);
                 $statusMap = [
                     'open' => 'connected',
+                    'connected' => 'connected',
                     'close' => 'disconnected',
+                    'disconnected' => 'disconnected',
                 ];
-                $status = $statusMap[$payload['data']['state']] ?? 'connecting';
+                $status = $statusMap[$rawState] ?? 'connecting';
                 
+                Log::info('WhatsApp connection status update', [
+                    'instance' => $instance->instance_name,
+                    'raw_state' => $rawState,
+                    'new_status' => $status
+                ]);
+
                 $instance->update([
                     'status' => $status,
                     'connected_at' => $status === 'connected' ? now() : null,
@@ -146,67 +164,73 @@ class WebhookController extends Controller
         }
 
         if (isset($payload['event']) && in_array($payload['event'], ['messages.upsert', 'MESSAGES_UPSERT'])) {
-            // Evolution API v2 format: data can be a single message or array of messages
+            // Evolution API format: can be in 'data' or 'data.messages'
             $data = $payload['data'] ?? [];
+            $messages = [];
             
-            // Check if data has 'key' (single message format) or 'messages' (batch format)
-            if (isset($data['key']) && isset($data['key']['remoteJid'])) {
-                $messages = [$data]; // Single message
-            } elseif (isset($data['messages']) && is_array($data['messages'])) {
-                $messages = $data['messages']; // Batch format
-            } else {
-                Log::warning('Webhook: Unknown message format', ['data' => $data]);
-                return response()->json(['status' => 'unknown_format']);
+            if (isset($data['messages']) && is_array($data['messages'])) {
+                $messages = $data['messages'];
+            } elseif (isset($data['key'])) {
+                $messages = [$data];
+            } elseif (is_array($data) && isset($data[0]['key'])) {
+                $messages = $data;
             }
             
-            // Filter out non-message entries
-            $messages = array_filter($messages, function($msg) {
-                return isset($msg['key']) && isset($msg['key']['remoteJid']);
-            });
-            
             if (empty($messages)) {
-                Log::warning('Webhook: No valid messages after filter');
+                Log::warning('Webhook: No valid messages found in payload', ['payload_keys' => array_keys($payload)]);
                 return response()->json(['status' => 'no_messages']);
             }
             
+            Log::info('Processing WhatsApp messages', ['count' => count($messages)]);
+            
             foreach ($messages as $msg) {
+                // Skip if from me
                 if (isset($msg['key']['fromMe']) && $msg['key']['fromMe']) {
                     continue;
                 }
 
-                $phone = $msg['key']['remoteJid'] ?? null;
-                if (!$phone) {
-                    continue;
+                $remoteJid = $msg['key']['remoteJid'] ?? null;
+                if (!$remoteJid || str_contains($remoteJid, '@g.us') || str_contains($remoteJid, '@broadcast')) {
+                    continue; // Skip groups and broadcasts
                 }
 
-                $phone = preg_replace('/\D/', '', $phone);
-                // No truncamos a 10 dígitos para no perder el código de país (ej. 549)
+                $phone = preg_replace('/\D/', '', $remoteJid);
 
-                // Handle different message formats
-                $messageBody = $msg['message']['conversation'] ?? 
-                             $msg['message']['extendedTextMessage']['text'] ?? 
-                             $msg['message']['messageContextInfo'] ?? // v2 new format
+                // Handle different message formats (v1, v2, Baileys)
+                $messageContent = $msg['message'] ?? null;
+                if (!$messageContent) continue;
+
+                $messageBody = $messageContent['conversation'] ?? 
+                             $messageContent['extendedTextMessage']['text'] ?? 
+                             $messageContent['imageMessage']['caption'] ??
+                             $messageContent['videoMessage']['caption'] ??
+                             $messageContent['templateButtonReplyMessage']['selectedId'] ??
+                             $messageContent['buttonsResponseMessage']['selectedButtonId'] ??
+                             $messageContent['listResponseMessage']['singleSelectReply']['selectedRowId'] ??
                              '';
 
+                // Si es un objeto complejo (v2 sometimes), intentar extraer el texto
+                if (is_array($messageBody)) {
+                    $messageBody = $messageBody['text'] ?? '';
+                }
+
                 $mediaUrl = null;
-                if (isset($msg['message']['imageMessage'])) {
-                    $mediaUrl = $msg['message']['imageMessage']['url'] ?? null;
-                } elseif (isset($msg['message']['documentMessage'])) {
-                    $mediaUrl = $msg['message']['documentMessage']['url'] ?? null;
+                if (isset($messageContent['imageMessage'])) {
+                    $mediaUrl = $messageContent['imageMessage']['url'] ?? null;
                 }
 
                 $contactName = $msg['pushName'] ?? null;
 
-                Log::info('Dispatching job', [
+                Log::info('Dispatching ProcessIncomingMessageJob', [
                     'tenant_id' => $tenantId,
                     'phone' => $phone,
-                    'message' => substr($messageBody, 0, 30),
+                    'message_snippet' => substr((string)$messageBody, 0, 30),
                 ]);
 
                 ProcessIncomingMessageJob::dispatch([
                     'tenant_id' => $tenantId,
                     'phone' => $phone,
-                    'message' => $messageBody,
+                    'message' => (string)$messageBody,
                     'media_url' => $mediaUrl,
                     'contact_name' => $contactName,
                 ]);
