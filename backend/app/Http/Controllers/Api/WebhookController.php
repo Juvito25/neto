@@ -49,8 +49,8 @@ class WebhookController extends Controller
         // Allow requests from Evolution container (multiple IPs for redundancy)
         $requestIp = $request->ip();
         
-        // Allow requests from Evolution container (multiple IPs for redundancy) and whole docker network
-        $isFromEvolution = str_starts_with($requestIp, '172.18.');
+        // Allow from Docker network (Evolution API) OR the server itself
+        $isFromEvolution = str_starts_with($requestIp, '172.18.') || $requestIp === '187.77.21.2';
         
         if (!$isFromEvolution && $providedKey !== $evolutionKey) {
             Log::warning('Webhook Security: Invalid apikey', [
