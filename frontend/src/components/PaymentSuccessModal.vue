@@ -81,6 +81,17 @@ onMounted(async () => {
   if (route.query.payment === 'success') {
     show.value = true
     router.replace({ path: '/settings', query: {} })
+    
+    // Refrescar el estado cada 2 segundos para detectar cuando el pago se procesa
+    const refreshInterval = setInterval(async () => {
+      await fetchStatus()
+      if (subscriptionStatus.value === 'active') {
+        clearInterval(refreshInterval)
+      }
+    }, 2000)
+    
+    // Limpiar el intervalo después de 30 segundos
+    setTimeout(() => clearInterval(refreshInterval), 30000)
   }
 })
 </script>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import logoBlue from '@/assets/branding/media__1776087843743.png'
@@ -13,13 +13,28 @@ const selectedPlan = ref(null)
 onMounted(async () => {
   try {
     const { data } = await axios.get('/plans')
-    plans.value = data.data || []
+    let allPlans = data.data || []
+    if (allPlans.length > 1) {
+      const proPlan = allPlans.find(p => p.name === 'pro')
+      plans.value = proPlan ? [proPlan] : [allPlans[0]]
+    } else {
+      plans.value = allPlans
+    }
   } catch (e) {
     console.error('Error loading plans:', e)
   } finally {
     loading.value = false
   }
 })
+
+function parseFeatures(features) {
+  if (Array.isArray(features)) return features
+  try {
+    return JSON.parse(features)
+  } catch {
+    return []
+  }
+}
 
 async function selectPlan(plan) {
   selecting.value = true
@@ -122,7 +137,7 @@ function isPopular(index) {
             </div>
             
             <div 
-              v-for="(feature, fIndex) in JSON.parse(plan.features)" 
+              v-for="(feature, fIndex) in parseFeatures(plan.features)" 
               :key="fIndex" 
               class="feature-item custom"
             >

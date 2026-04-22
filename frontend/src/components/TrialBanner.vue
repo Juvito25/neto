@@ -34,26 +34,22 @@ const fetchBillingStatus = async () => {
     tenant.value = data.tenant
     trialEndsAt.value = data.tenant.trial_ends_at
     subscriptionStatus.value = data.tenant.subscription_status
-    
-    // Check if banner was dismissed today
-    const dismissedDate = localStorage.getItem('trial_banner_dismissed')
-    const today = new Date().toDateString()
-    dismissedToday.value = dismissedDate === today
   } catch (e) {
     console.error('Error fetching billing status:', e)
   }
 }
 
+watch(subscriptionStatus, (newStatus) => {
+  checkBannerVisibility()
+})
+
 const daysRemaining = computed(() => {
-  // Use days_remaining from API if available
   if (tenant.value?.days_remaining !== undefined && tenant.value?.days_remaining !== null) {
     return Math.max(0, parseInt(tenant.value.days_remaining))
   }
-  // Fallback to trial_remaining_days
   if (tenant.value?.trial_remaining_days !== undefined && tenant.value?.trial_remaining_days !== null) {
     return Math.max(0, parseInt(tenant.value.trial_remaining_days))
   }
-  // Fallback to trial_ends_at
   if (!trialEndsAt.value) return 0
   const diff = new Date(trialEndsAt.value) - new Date()
   return Math.ceil(diff / 86400000)
