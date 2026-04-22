@@ -203,7 +203,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
                 'sanitized' => $originalMessage !== $messageBody,
             ]);
 
-            $this->sendMessage($tenant, $phone, $replyContent);
+            $this->sendMessage($tenant, $phone, $response['content']);
         }
     }
 
