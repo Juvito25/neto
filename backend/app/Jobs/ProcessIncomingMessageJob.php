@@ -253,7 +253,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
 
     private function buildSystemPrompt(Tenant $tenant, string $catalogContext = ''): string
     {
-        $prompt = "Vos sos el asistente virtual de *{$tenant->business_name}*. SÉ BREVE Y DIRECTO. No exageres con saludos largos ni saques conclusiones sobre lo que el cliente no dijo.";
+        $prompt = "Vos sos el asistente virtual de *{$tenant->business_name}*. SÉ MUY BREVE. Máximo 2 oraciones. Sin saludos largos.";
         
         if ($tenant->description) {
             $prompt .= "\n\nInformación del negocio: {$tenant->description}";
@@ -362,7 +362,7 @@ Ejemplo correcto:
                 'Content-Type' => 'application/json',
             ])->post('https://api.groq.com/openai/v1/chat/completions', [
                 'model' => 'llama-3.1-8b-instant',
-                'max_tokens' => 500,
+                'max_tokens' => 200,
                 'temperature' => 0.7,
                 'messages' => array_merge(
                     [['role' => 'system', 'content' => $systemPrompt]],
