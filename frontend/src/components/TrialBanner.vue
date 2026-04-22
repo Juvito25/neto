@@ -26,6 +26,7 @@ const tenant = ref(null)
 const trialEndsAt = ref(null)
 const subscriptionStatus = ref(null)
 const showBanner = ref(true)
+const dismissedToday = ref(false)
 
 const fetchBillingStatus = async () => {
   try {
