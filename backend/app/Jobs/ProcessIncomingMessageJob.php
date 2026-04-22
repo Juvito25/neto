@@ -39,6 +39,12 @@ class ProcessIncomingMessageJob implements ShouldQueue
             return;
         }
 
+        Log::info('ProcessIncomingMessageJob: starting', [
+            'tenant_id' => $tenantId,
+            'phone' => $phone,
+            'message_length' => strlen($messageBody)
+        ]);
+
         $tenant = Tenant::withoutGlobalScope(\App\Models\Scopes\TenantScope::class)->find($tenantId);
         
         if (!$tenant) {
@@ -81,18 +87,22 @@ class ProcessIncomingMessageJob implements ShouldQueue
             'media_url' => $mediaUrl,
         ]);
 
-        $catalogContext = $this->buildCatalogContext($tenantId);
+        $catalogStart = microtime(true);
 
+        $catalogContext = $this->buildCatalogContext($tenantId);
         $systemPrompt = $this->buildSystemPrompt($tenant, $catalogContext);
         $conversationHistory = $this->buildConversationHistory($tenantId, $contact->id);
+        $catalogTime = (microtime(true) - $catalogStart) * 1000;
 
-        $startTime = microtime(true);
+        $aiStart = microtime(true);
         $originalMessage = $messageBody;
         $messageBody = $this->sanitizeMessage($messageBody);
 
         $response = $this->callGroq($systemPrompt, $conversationHistory, $messageBody);
 
-        $duration = microtime(true) - $startTime;
+        $aiTime = (microtime(true) - $aiStart) * 1000;
+
+        $duration = $catalogTime + $aiTime;
 
         if ($response) {
             $replyContent = $response['content'];
@@ -186,7 +196,9 @@ class ProcessIncomingMessageJob implements ShouldQueue
             Log::info('Message processed', [
                 'tenant_id' => $tenantId,
                 'phone' => $phone,
-                'duration_ms' => round($duration * 1000, 2),
+                'total_ms' => round($duration, 2),
+                'catalog_ms' => round($catalogTime, 2),
+                'ai_ms' => round($aiTime, 2),
                 'tokens' => $response['tokens'],
                 'sanitized' => $originalMessage !== $messageBody,
             ]);
@@ -423,19 +435,25 @@ Ejemplo correcto:
         if (!$instance || !$instance->isConnected()) {
             Log::warning('ProcessIncomingMessageJob: WhatsApp not connected', [
                 'tenant_id' => $tenant->id,
+                'status' => $instance ? $instance->status : 'no_instance'
             ]);
             return;
         }
 
-        $evolutionUrl = config('services.evolution.url');
+        $evolutionUrl = rtrim(config('services.evolution.url'), '/');
         $evolutionKey = config('services.evolution.key');
 
         $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
         
-        // Si no tiene el código de país (54) y código whatsapp (9), lo agregamos como default
+        // Si no tiene el código de país (54) y código whatsapp (9), lo agregamos como default (Argentina)
         if (strlen($cleanPhone) <= 10) {
             $cleanPhone = '549' . $cleanPhone;
         }
+
+        Log::info('Sending message via Evolution API', [
+            'instance' => $instance->instance_name,
+            'phone' => $cleanPhone
+        ]);
 
         try {
             $response = Http::withHeaders([
@@ -444,12 +462,17 @@ Ejemplo correcto:
             ])->post("{$evolutionUrl}/message/sendText/{$instance->instance_name}", [
                 'number' => $cleanPhone,
                 'text' => $message,
+                'linkPreview' => false
             ]);
 
-            Log::info('Evolution sendText response', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
+            if ($response->failed()) {
+                Log::error('Evolution sendText failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+            } else {
+                Log::info('Evolution sendText success');
+            }
         } catch (\Exception $e) {
             Log::error('ProcessIncomingMessageJob: Failed to send message', [
                 'error' => $e->getMessage(),
