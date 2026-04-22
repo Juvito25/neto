@@ -110,7 +110,7 @@ class WhatsAppController extends Controller
                     ])->post("{$evolutionUrl}/webhook/set/{$instanceName}", [
                         'webhook' => [
                             'enabled' => true,
-                            'url' => 'http://neto_nginx:8888/api/webhooks/whatsapp',
+                            'url' => 'https://app.netoia.cloud/api/webhooks/whatsapp',
                             'webhookByEvents' => false,
                             'webhookBase64' => false,
                             'events' => ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
@@ -144,9 +144,17 @@ class WhatsAppController extends Controller
             $evolutionKey = config('services.evolution.key');
 
             try {
-                Http::withHeaders([
+                // Verify instance exists in Evolution API first
+                $response = Http::withHeaders([
                     'apikey' => $evolutionKey,
-                ])->delete("{$evolutionUrl}/instance/delete/{$instance->instance_name}");
+                ])->get("{$evolutionUrl}/instance/connectionState/{$instance->instance_name}");
+
+                if ($response->successful()) {
+                    // Instance exists, try to delete
+                    Http::withHeaders([
+                        'apikey' => $evolutionKey,
+                    ])->delete("{$evolutionUrl}/instance/delete/{$instance->instance_name}");
+                }
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::warning('WhatsAppController: Failed to delete instance', [
                     'error' => $e->getMessage(),
