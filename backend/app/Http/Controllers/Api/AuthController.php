@@ -99,7 +99,7 @@ class AuthController extends Controller
                             'apikey' => $evolutionKey,
                             'Content-Type' => 'application/json',
                         ])->post("{$evolutionUrl}/webhook/set/{$instanceName}", [
-                            'url' => config('app.url') . '/api/webhooks/whatsapp',
+                            'url' => 'http://neto_nginx:8888/api/webhooks/whatsapp',
                             'webhookByEvents' => true,
                             'webhookEvents' => ['messages.upsert', 'connection.update', 'qrcode'],
                         ]);

@@ -110,7 +110,7 @@ class WhatsAppController extends Controller
                     ])->post("{$evolutionUrl}/webhook/set/{$instanceName}", [
                         'webhook' => [
                             'enabled' => true,
-                            'url' => 'http://neto_nginx/api/webhooks/whatsapp',
+                            'url' => 'http://neto_nginx:8888/api/webhooks/whatsapp',
                             'webhookByEvents' => false,
                             'webhookBase64' => false,
                             'events' => ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
