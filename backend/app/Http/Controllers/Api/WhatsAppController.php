@@ -77,60 +77,116 @@ class WhatsAppController extends Controller
         
         $instance = WhatsappInstance::where('tenant_id', $tenant->id)->first();
 
-        if (!$instance) {
-            $instanceName = 'neto_' . $tenant->id . '_' . time();
-            
+        if ($instance) {
             $evolutionUrl = config('services.evolution.url');
             $evolutionKey = config('services.evolution.key');
-
+            
             try {
-                // Evolution API v2 format
-                $response = Http::withHeaders([
+                $webhookCheck = Http::withHeaders([
                     'apikey' => $evolutionKey,
-                    'Content-Type' => 'application/json',
-                ])->post("{$evolutionUrl}/instance/create", [
-                    'instanceName' => $instanceName,
-                    'qrcode' => true,
-                    'integration' => 'WHATSAPP-BAILEYS',
-                ]);
-
-                $responseData = $response->json();
+                ])->get("{$evolutionUrl}/webhook/find/{$instance->instance_name}");
                 
-                if ($response->successful() || isset($responseData['instance'])) {
-                    $instance = WhatsappInstance::create([
-                        'tenant_id' => $tenant->id,
-                        'instance_name' => $instanceName,
-                        'status' => 'connecting',
-                    ]);
-
-                    // Configure webhook automatically via nginx (Evolution can't reach PHP-FPM directly)
+                $webhookData = $webhookCheck->json();
+                if (!$webhookCheck->successful() || empty($webhookData['enabled'])) {
+                    Log::info('Configuring webhook for existing instance', ['instance' => $instance->instance_name]);
+                    $webhookUrl = config('app.url') . '/api/webhooks/whatsapp';
                     Http::withHeaders([
                         'apikey' => $evolutionKey,
                         'Content-Type' => 'application/json',
-                    ])->post("{$evolutionUrl}/webhook/set/{$instanceName}", [
+                    ])->post("{$evolutionUrl}/webhook/set/{$instance->instance_name}", [
                         'webhook' => [
                             'enabled' => true,
-                            'url' => 'https://app.netoia.cloud/api/webhooks/whatsapp',
+                            'url' => $webhookUrl,
                             'webhookByEvents' => false,
                             'webhookBase64' => false,
-                            'events' => ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+                            'events' => [
+                                'MESSAGES_UPSERT',
+                                'MESSAGES_UPDATE',
+                                'CONNECTION_UPDATE',
+                                'SEND_MESSAGE',
+                                'QRCODE_UPDATED',
+                            ],
                         ],
                     ]);
-                } else {
-                    return response()->json([
-                        'message' => 'Error al crear instancia',
-                        'details' => $responseData
-                    ], 500);
+
+                    Log::info('WhatsApp webhook configured', [
+                        'instance' => $instance->instance_name,
+                        'webhook_url' => $webhookUrl,
+                    ]);
                 }
             } catch (\Exception $e) {
-                return response()->json(['message' => 'Error al crear instancia: ' . $e->getMessage()], 500);
+                Log::warning('Failed to configure webhook', ['error' => $e->getMessage()]);
             }
+            
+            return response()->json([
+                'status' => $instance->status,
+                'instance_name' => $instance->instance_name,
+            ]);
         }
 
-        return response()->json([
-            'status' => $instance?->status ?? 'unknown',
-            'instance_name' => $instance?->instance_name,
-        ]);
+        $instanceName = 'neto_' . $tenant->id . '_' . time();
+        
+        $evolutionUrl = config('services.evolution.url');
+        $evolutionKey = config('services.evolution.key');
+
+        try {
+            $response = Http::withHeaders([
+                'apikey' => $evolutionKey,
+                'Content-Type' => 'application/json',
+            ])->post("{$evolutionUrl}/instance/create", [
+                'instanceName' => $instanceName,
+                'qrcode' => true,
+                'integration' => 'WHATSAPP-BAILEYS',
+            ]);
+
+            $responseData = $response->json();
+            
+            if ($response->successful() || isset($responseData['instance'])) {
+                $instance = WhatsappInstance::create([
+                    'tenant_id' => $tenant->id,
+                    'instance_name' => $instanceName,
+                    'status' => 'connecting',
+                ]);
+
+                $webhookUrl = config('app.url') . '/api/webhooks/whatsapp';
+
+                Http::withHeaders([
+                    'apikey' => $evolutionKey,
+                    'Content-Type' => 'application/json',
+                ])->post("{$evolutionUrl}/webhook/set/{$instanceName}", [
+                    'webhook' => [
+                        'enabled' => true,
+                        'url' => $webhookUrl,
+                        'webhookByEvents' => false,
+                        'webhookBase64' => false,
+                        'events' => [
+                            'MESSAGES_UPSERT',
+                            'MESSAGES_UPDATE',
+                            'CONNECTION_UPDATE',
+                            'SEND_MESSAGE',
+                            'QRCODE_UPDATED',
+                        ],
+                    ],
+                ]);
+
+                Log::info('WhatsApp webhook configured', [
+                    'instance' => $instanceName,
+                    'webhook_url' => $webhookUrl,
+                ]);
+
+                return response()->json([
+                    'status' => 'webhook_configured',
+                    'message' => 'Instancia creada y webhook configurado',
+                ]);
+            } else {
+                return response()->json([
+                    'message' => 'Error al crear instancia',
+                    'details' => $responseData
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al crear instancia: ' . $e->getMessage()], 500);
+        }
     }
 
     public function disconnect(Request $request)
