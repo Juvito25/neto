@@ -97,7 +97,7 @@ export function HeroSection() {
                       <MessageCircle className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <p className="font-semibold text-white">NETO</p>
+                      <p className="font-semibold text-white">EcoLava</p>
                       <p className="text-xs text-white/70">asistente virtual</p>
                     </div>
                   </div>
@@ -118,7 +118,7 @@ export function HeroSection() {
                       <p className="text-xs text-[#0052CC] font-medium">respondió en 2s</p>
                     </div>
                     <p className="text-sm text-gray-800 mt-1">Sí, tenemos Milk Ops 500ml disponible! 🌿</p>
-                    <p className="text-sm text-gray-800">Es un limpidor ecológico concentrado, rendí mucho y huele a lavanda.</p>
+                    <p className="text-sm text-gray-800">Es un limpidor ecológico concentrado, rinde mucho y huele a lavanda.</p>
                   </div>
                   
                   {/* Product card */}

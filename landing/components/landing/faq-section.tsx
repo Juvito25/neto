@@ -30,7 +30,7 @@ const faqs = [
   },
   {
     question: "Cuántos productos puedo cargar?",
-    answer: "Hasta 500 productos en el plan básico. Si necesitás más,我们来 hablar.",
+    answer: "Hasta 500 productos en el plan básico. Si necesitás más, hablamos.",
   },
 ]
 
