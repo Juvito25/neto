@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 import logoBlue from '@/assets/branding/media__1776087843743.png'
@@ -10,7 +10,29 @@ const loading = ref(true)
 const selecting = ref(false)
 const selectedPlan = ref(null)
 
+/** Cotización dólar blue (https://dolarapi.com/v1/dolares/blue) — `venta` para pasar USD → ARS aproximado */
+const dolarBlue = ref(null)
+const cotizacionLista = ref(false)
+
+const DOLAR_BLUE_URL = 'https://dolarapi.com/v1/dolares/blue'
+
+async function fetchDolarBlue() {
+  try {
+    const res = await fetch(DOLAR_BLUE_URL)
+    if (!res.ok) return
+    const data = await res.json()
+    if (data && typeof data.venta === 'number' && data.venta > 0) {
+      dolarBlue.value = data
+    }
+  } catch (e) {
+    console.warn('No se pudo obtener cotización dólar blue:', e)
+  } finally {
+    cotizacionLista.value = true
+  }
+}
+
 onMounted(async () => {
+  const dolarPromise = fetchDolarBlue()
   try {
     const { data } = await axios.get('/plans')
     let allPlans = data.data || []
@@ -25,6 +47,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  await dolarPromise
 })
 
 function parseFeatures(features) {
@@ -69,8 +92,40 @@ async function selectPlan(plan) {
   }
 }
 
-function formatPrice(cents) {
-  return (cents / 100).toLocaleString('es-AR', { minimumFractionDigits: 0 })
+/** Precio en USD desde cents (planes vienen en USD). */
+function formatUsdFromCents(cents) {
+  return (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
+
+/** ARS/mes aproximado: USD del plan × dólar blue venta. */
+function arsPerMonthFromPlan(plan) {
+  if (!plan?.price_cents || plan.price_cents <= 0) return null
+  const cur = (plan.currency || 'USD').toString().toUpperCase()
+  if (cur !== 'USD') return null
+  const venta = dolarBlue.value?.venta
+  if (typeof venta !== 'number' || venta <= 0) return null
+  return Math.round((plan.price_cents / 100) * venta)
+}
+
+function formatArs(amount) {
+  return amount.toLocaleString('es-AR', { maximumFractionDigits: 0 })
+}
+
+function formatDolarUpdatedAt(iso) {
+  if (!iso) return ''
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    return d.toLocaleString('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return ''
+  }
 }
 
 function isPopular(index) {
@@ -114,9 +169,14 @@ function isPopular(index) {
           <div class="card-top">
             <h2 class="plan-name">{{ plan.display_name }}</h2>
             <div class="plan-price">
-              <span class="currency">$</span>
-              <span class="amount">{{ formatPrice(plan.price_cents) }}</span>
-              <span class="period">/mes</span>
+              <template v-if="!plan.price_cents">
+                <span class="amount amount-free">Gratis</span>
+              </template>
+              <template v-else>
+                <span class="currency">USD</span>
+                <span class="amount">{{ formatUsdFromCents(plan.price_cents) }}</span>
+                <span class="period">/mes</span>
+              </template>
             </div>
           </div>
           
@@ -298,6 +358,7 @@ function isPopular(index) {
 
 .plan-price {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   margin-bottom: 32px;
 }
@@ -319,6 +380,22 @@ function isPopular(index) {
   font-size: 1rem;
   color: var(--color-text-muted);
   margin-left: 4px;
+}
+
+.amount-free {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: var(--color-success);
+  letter-spacing: -0.02em;
+}
+
+.price-hint {
+  width: 100%;
+  margin-top: 12px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  font-weight: 500;
 }
 
 .divider {

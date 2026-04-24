@@ -5,12 +5,30 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\PreApproval\PreApprovalClient;
-use Illuminate\Support\Facades\Log;
 
 class BillingController extends Controller
 {
+    /**
+     * Obtiene la cotización del dólar blue desde dolarapi.com
+     */
+    private function getDolarBlueCotizacion(): ?float
+    {
+        try {
+            $response = Http::get('https://dolarapi.com/v1/dolares/blue');
+            if ($response->successful()) {
+                $data = $response->json();
+                return $data['venta'] ?? null;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Error fetching dolar blue: ' . $e->getMessage());
+        }
+        return null;
+    }
+
     public function createSubscription(Request $request)
     {
         $tenant = $request->user()->tenant;
@@ -24,7 +42,22 @@ class BillingController extends Controller
 
         $client = new PreApprovalClient();
         
-        $backUrl = config('app.url') . '/settings?payment=success'; 
+        $backUrl = config('app.url') . '/settings?payment=success';
+
+        // Obtener el plan del tenant para calcular el precio
+        $plan = $tenant->plan;
+        $transactionAmount = 20; // valor por defecto si falla la API
+        
+        if ($plan && $plan->price_cents > 0) {
+            $precioUSD = $plan->price_cents / 100;
+            $dolarBlue = $this->getDolarBlueCotizacion();
+            if ($dolarBlue) {
+                $transactionAmount = round($precioUSD * $dolarBlue);
+                Log::info("Precio calculado: {$precioUSD} USD x \$ {$dolarBlue} = \$ {$transactionAmount} ARS");
+            } else {
+                Log::warning('No se pudo obtener dólar blue, usando precio por defecto');
+            }
+        }
 
         try {
             $preapproval_data = [
@@ -33,7 +66,7 @@ class BillingController extends Controller
                 "auto_recurring" => [
                     "frequency" => 1,
                     "frequency_type" => "months",
-                    "transaction_amount" => (float) 20, 
+                    "transaction_amount" => (float) $transactionAmount, 
                     "currency_id" => "ARS" 
                 ],
                 "back_url" => $backUrl,
