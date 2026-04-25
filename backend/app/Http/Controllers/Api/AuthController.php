@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -38,94 +40,112 @@ class AuthController extends Controller
             'business_name.min' => 'El nombre del negocio debe tener al menos 2 caracteres',
         ]);
 
-        return DB::transaction(function () use ($request) {
-            // Obtener plan por defecto (starter)
-            $defaultPlan = Plan::where('name', 'starter')->first();
-            
-            if (!$defaultPlan) {
-                \Illuminate\Support\Facades\Log::warning('AuthController: Starter plan not found in database, using defaults.');
-            }
+        try {
+            return DB::transaction(function () use ($validated) {
+                // Obtener plan por defecto (starter)
+                $defaultPlan = Plan::where('name', 'starter')->first();
+                
+                if (!$defaultPlan) {
+                    Log::warning('AuthController: Starter plan not found in database, using defaults.');
+                }
 
-            $trialDays = $defaultPlan ? $defaultPlan->trial_days : 14;
+                $trialDays = $defaultPlan ? $defaultPlan->trial_days : 14;
 
-            $tenant = Tenant::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'business_name' => $request->business_name,
-                'rubro' => $request->rubro,
-                'plan_id' => $defaultPlan?->id,
-                'onboarding_step' => 'business',
-                'onboarding_completed' => false,
-                'trial_ends_at' => now()->addDays($trialDays),
-                'trial_remaining_days' => $trialDays,
-                'subscription_status' => 'trial',
-            ]);
+                $tenant = Tenant::create([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'password' => Hash::make($validated['password']),
+                    'business_name' => $validated['business_name'],
+                    'rubro' => $validated['rubro'] ?? null,
+                    'plan_id' => $defaultPlan?->id,
+                    'onboarding_step' => 'business',
+                    'onboarding_completed' => false,
+                    'trial_ends_at' => now()->addDays($trialDays),
+                    'trial_remaining_days' => $trialDays,
+                    'subscription_status' => 'trial',
+                ]);
 
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'tenant_id' => $tenant->id,
-            ]);
+                $user = User::create([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'password' => Hash::make($validated['password']),
+                    'tenant_id' => $tenant->id,
+                ]);
 
-            // Crear instancia de WhatsApp
-            $instanceName = 'neto_' . $tenant->id . '_' . time();
-            $evolutionUrl = config('services.evolution.url');
-            $evolutionKey = config('services.evolution.key');
+                // Crear instancia de WhatsApp
+                $instanceName = 'neto_' . $tenant->id . '_' . time();
+                $evolutionUrl = config('services.evolution.url');
+                $evolutionKey = config('services.evolution.key');
 
-            if ($evolutionUrl && $evolutionKey) {
-                try {
-                    $response = Http::withHeaders([
-                        'apikey' => $evolutionKey,
-                        'Content-Type' => 'application/json',
-                    ])->post("{$evolutionUrl}/instance/create", [
-                        'instanceName' => $instanceName,
-                        'qrCode' => true,
-                    ]);
-
-                    if ($response->successful()) {
-                        $instance = WhatsappInstance::create([
-                            'tenant_id' => $tenant->id,
-                            'instance_name' => $instanceName,
-                            'status' => 'connecting',
-                        ]);
-
-                        $tenant->update([
-                            'whatsapp_instance_id' => $instance->id,
-                        ]);
-
-                        Http::withHeaders([
+                if ($evolutionUrl && $evolutionKey) {
+                    try {
+                        $response = Http::withHeaders([
                             'apikey' => $evolutionKey,
                             'Content-Type' => 'application/json',
-                        ])->post("{$evolutionUrl}/webhook/set/{$instanceName}", [
-                            'url' => 'https://app.netoia.cloud/api/webhooks/whatsapp',
-                            'webhookByEvents' => true,
-                            'webhookEvents' => ['messages.upsert', 'connection.update', 'qrcode'],
+                        ])->post("{$evolutionUrl}/instance/create", [
+                            'instanceName' => $instanceName,
+                            'qrCode' => true,
                         ]);
-                    } else {
-                        \Illuminate\Support\Facades\Log::error('AuthController: Evolution API returned error', [
-                            'status' => $response->status(),
-                            'body' => $response->body(),
+
+                        if ($response->successful()) {
+                            $instance = WhatsappInstance::create([
+                                'tenant_id' => $tenant->id,
+                                'instance_name' => $instanceName,
+                                'status' => 'connecting',
+                            ]);
+
+                            $tenant->update([
+                                'whatsapp_instance_id' => $instance->id,
+                            ]);
+
+                            Http::withHeaders([
+                                'apikey' => $evolutionKey,
+                                'Content-Type' => 'application/json',
+                            ])->post("{$evolutionUrl}/webhook/set/{$instanceName}", [
+                                'url' => 'https://app.netoia.cloud/api/webhooks/whatsapp',
+                                'webhookByEvents' => true,
+                                'webhookEvents' => ['messages.upsert', 'connection.update', 'qrcode'],
+                            ]);
+                        } else {
+                            Log::error('AuthController: Evolution API returned error', [
+                                'status' => $response->status(),
+                                'body' => $response->body(),
+                            ]);
+                        }
+                    } catch (Throwable $e) {
+                        Log::error('AuthController: Failed to create WhatsApp instance', [
+                            'error' => $e->getMessage(),
                         ]);
                     }
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('AuthController: Failed to create WhatsApp instance', [
-                        'error' => $e->getMessage(),
-                    ]);
+                } else {
+                    Log::warning('AuthController: Evolution API URL or Key missing in config');
                 }
-            } else {
-                \Illuminate\Support\Facades\Log::warning('AuthController: Evolution API URL or Key missing in config');
+
+                $token = $user->createToken('auth-token')->plainTextToken;
+
+                return response()->json([
+                    'user' => $user,
+                    'tenant' => $tenant->load('plan'),
+                    'token' => $token,
+                ], 201);
+            });
+        } catch (Throwable $e) {
+            Log::error('AuthController: Register failed', [
+                'email' => $validated['email'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            $errorMessage = strtolower($e->getMessage());
+            if (str_contains($errorMessage, 'users_email_unique') || str_contains($errorMessage, 'duplicate')) {
+                return response()->json([
+                    'message' => 'Este email ya está registrado. Probá iniciar sesión o usar otro email.',
+                ], 422);
             }
 
-            $token = $user->createToken('auth-token')->plainTextToken;
-
             return response()->json([
-                'user' => $user,
-                'tenant' => $tenant->load('plan'),
-                'token' => $token,
-            ], 201);
-        });
+                'message' => 'No se pudo crear la cuenta en este momento. Si el email ya existe, iniciá sesión.',
+            ], 500);
+        }
     }
 
     public function login(Request $request)
