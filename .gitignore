@@ -24,6 +24,8 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+docker/nginx/default-local.conf
+docker/nginx/local-dev.conf
 
 # Logs
 *.log
