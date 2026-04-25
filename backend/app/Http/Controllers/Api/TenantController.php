@@ -36,6 +36,7 @@ class TenantController extends Controller
         $tenant = $request->user()->tenant;
 
         $validated = $request->validate([
+            'plan_id' => 'sometimes|uuid|exists:plans,id',
             'business_name' => 'sometimes|string|max:255',
             'rubro' => 'sometimes|string|max:255',
             'description' => 'sometimes|string',
