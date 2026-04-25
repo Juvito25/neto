@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\PreApproval\PreApprovalClient;
+use Throwable;
 
 class BillingController extends Controller
 {
@@ -41,6 +42,42 @@ class BillingController extends Controller
         MercadoPagoConfig::setAccessToken($mercadoPagoToken);
 
         $client = new PreApprovalClient();
+
+        // Si ya existe una suscripción en MP para este tenant, evitamos crear duplicados.
+        if (!empty($tenant->mp_subscription_id)) {
+            try {
+                $existing = $client->get($tenant->mp_subscription_id);
+                if ($existing) {
+                    $existingStatus = $existing->status ?? null;
+                    $existingInitPoint = $existing->init_point ?? ($existing->sandbox_init_point ?? null);
+
+                    if ($existingStatus === 'authorized') {
+                        return response()->json([
+                            'success' => true,
+                            'already_active' => true,
+                            'message' => 'Tu suscripción ya está activa.',
+                            'id' => $existing->id ?? $tenant->mp_subscription_id,
+                        ]);
+                    }
+
+                    if (in_array($existingStatus, ['pending', 'authorized'], true) && !empty($existingInitPoint)) {
+                        return response()->json([
+                            'success' => true,
+                            'already_exists' => true,
+                            'init_point' => $existingInitPoint,
+                            'id' => $existing->id ?? $tenant->mp_subscription_id,
+                        ]);
+                    }
+                }
+            } catch (Throwable $e) {
+                // Si la suscripción previa no existe en MP (o no se puede leer), continuamos creando una nueva.
+                Log::warning('No se pudo consultar suscripción MP existente', [
+                    'tenant_id' => $tenant->id,
+                    'mp_subscription_id' => $tenant->mp_subscription_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
         
         $backUrl = config('app.url') . '/settings?payment=success';
 
@@ -62,7 +99,7 @@ class BillingController extends Controller
         try {
             $preapproval_data = [
                 "reason" => "NETO - Plan Pro Mensual",
-                "payer_email" => $tenant->email, 
+                "payer_email" => $tenant->email ?: $request->user()->email,
                 "auto_recurring" => [
                     "frequency" => 1,
                     "frequency_type" => "months",
@@ -90,15 +127,27 @@ class BillingController extends Controller
                 'id' => $preapproval->id
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             Log::error('Mercado Pago Subscription Error:', [
                 'message' => $e->getMessage(),
+                'tenant_id' => $tenant->id,
+                'mp_subscription_id' => $tenant->mp_subscription_id,
                 'payload' => $preapproval_data ?? null
             ]);
 
+            // Caso común: usuario ya tiene una suscripción creada para el mismo payer_email.
+            // Lo devolvemos como error de negocio (409) en vez de 500.
+            $message = $e->getMessage();
+            if (str_contains(strtolower($message), 'already') || str_contains(strtolower($message), 'exist')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ya existe una suscripción para este usuario. Si ya pagaste, refrescá la página o revisá Configuración.',
+                ], 409);
+            }
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error: ' . $e->getMessage()
+                'message' => 'No se pudo iniciar la suscripción en este momento. Intentá nuevamente en unos minutos.'
             ], 500);
         }
     }

@@ -73,6 +73,10 @@ async function selectPlan(plan) {
       const { data } = await axios.post('/billing/subscription', {}, {
         headers: { Authorization: `Bearer ${token}` }
       })
+      if (data.already_active) {
+        router.push('/settings?payment=success')
+        return
+      }
       if (data.init_point) {
         window.location.href = data.init_point
         return
