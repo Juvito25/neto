@@ -3,7 +3,7 @@ import { ArrowRight, MessageCircle, Zap } from "lucide-react"
 
 export function CTASection() {
   return (
-    <section className="px-4 py-20 md:py-28">
+    <section className="px-4 py-16 md:py-20">
       <div className="mx-auto max-w-7xl">
         <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#0052CC] via-[#0052CC] to-[#003d99] px-8 py-16 text-center md:px-16 md:py-24">
           {/* Background decoration */}

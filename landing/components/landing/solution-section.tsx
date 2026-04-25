@@ -3,11 +3,11 @@ import { Bot, CreditCard, LayoutDashboard, Package, Brain, Clock, Zap, Smartphon
 const features = [
   {
     icon: Bot,
-    title: "Tu vendedor que never sleeps",
+    title: "Tu vendedor que nunca duerme",
     description: "NETO con IA Llama 3.1 responde como un vendedor con años de experiencia. Conoce cada producto, entiende lo que necesitan y cierra solo.",
-    className: "md:col-span-2 md:row-span-2",
+    className: "md:col-span-2",
     preview: (
-      <div className="mt-6 space-y-3">
+      <div className="mt-4 space-y-3">
         <div className="rounded-2xl bg-white/80 p-4 shadow-sm backdrop-blur">
           <div className="flex items-start gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0052CC]/10">
@@ -32,6 +32,19 @@ const features = [
             </div>
           </div>
         </div>
+        <div className="ml-auto max-w-[80%] rounded-2xl bg-gray-100 p-4">
+          <p className="text-sm text-gray-800">Genial, me llevo el pack. Lo puedo pagar cuando llega?</p>
+        </div>
+        <div className="rounded-2xl bg-white/80 p-4 shadow-sm backdrop-blur">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0052CC]/10">
+              <Bot className="h-4 w-4 text-[#0052CC]" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-800">Sí, obvio. Te lo mando hoy y pagás al recibir 🙌 Te paso el link para confirmar dirección?</p>
+            </div>
+          </div>
+        </div>
       </div>
     ),
   },
@@ -42,12 +55,24 @@ const features = [
     className: "md:col-span-1",
     preview: (
       <div className="mt-4 grid grid-cols-2 gap-2">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="overflow-hidden rounded-xl bg-white/80 shadow-sm backdrop-blur">
-            <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200" />
+        {[
+          { name: "Milk Ops 500ml", price: "$4.500", icon: "🌿", avatar: "EC" },
+          { name: "Refill Lavanda", price: "$3.200", icon: "🧴", avatar: "ML" },
+          { name: "Pack Cocina", price: "$9.900", icon: "✨", avatar: "EL" },
+          { name: "Detergente Pro", price: "$5.800", icon: "🫧", avatar: "NV" },
+        ].map((item) => (
+          <div key={item.name} className="overflow-hidden rounded-xl border border-gray-100 bg-white/90 shadow-sm backdrop-blur">
+            <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-[#0052CC]/8 to-[#008A45]/10">
+              <span className="text-2xl">{item.icon}</span>
+            </div>
             <div className="p-2">
-              <div className="h-2 w-16 rounded bg-gray-200" />
-              <div className="mt-1 h-2 w-10 rounded bg-[#0052CC]/20" />
+              <p className="truncate text-[11px] font-semibold text-gray-800">{item.name}</p>
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-[11px] font-bold text-[#0052CC]">{item.price}</p>
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#008A45]/10 text-[9px] font-semibold text-[#008A45]">
+                  {item.avatar}
+                </div>
+              </div>
             </div>
           </div>
         ))}
@@ -62,10 +87,8 @@ const features = [
     preview: (
       <div className="mt-4 overflow-hidden rounded-2xl bg-white/80 p-4 shadow-sm backdrop-blur">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#008A45]">
-            <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17.498 14.382c-.301-.15-1.767-.867-2.041-.966-.273-.101-.473-.15-.673.15-.197.295-. copper.964.241 1.2.275.226 1.027.6 1.272.72.275.136.463.151.673.045.301-.15 1.676-1.917 1.676-1.917s-.351-.302-.673-.453c-.321-.15-.601-.225-.673-.353-.074-.15-.074-.3-.052-.45.023-.151.226-.301.452-.45.301-.226.452-.226.601-.226s.351-.025.603.15c.25.176.476.451.476.451s-.351.226-.476.301z"/>
-            </svg>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#008A45]/10">
+            <img src="/whatsapp-logo.svg" alt="Logo de WhatsApp" className="h-8 w-8" />
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-900">WhatsApp es todo</p>
@@ -103,7 +126,7 @@ const features = [
 
 export function SolutionSection() {
   return (
-    <section className="px-4 py-20 md:py-28">
+    <section className="px-4 py-16 md:py-20">
       <div className="mx-auto max-w-7xl">
         {/* Section header */}
         <div className="mx-auto max-w-2xl text-center">
@@ -120,7 +143,7 @@ export function SolutionSection() {
         </div>
 
         {/* Bento Grid */}
-        <div className="mt-16 grid gap-4 md:grid-cols-3 md:grid-rows-2">
+        <div className="mt-16 grid gap-4 md:grid-cols-3">
           {features.map((feature, index) => (
             <div
               key={index}

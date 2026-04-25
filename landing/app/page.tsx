@@ -22,7 +22,9 @@ export default function Home() {
           <SolutionSection />
         </section>
         
-        <TargetSection />
+        <div className="border-t border-border/60">
+          <TargetSection />
+        </div>
         
         <section id="precio">
           <PricingSection />
