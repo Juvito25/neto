@@ -7,7 +7,7 @@ const footerLinks = {
     { label: "Preguntas frecuentes", href: "#faq" },
   ],
   Empresa: [
-    { label: "Contacto", href: "mailto:hola@neto.cloud" },
+    { label: "Contacto", href: "mailto:netosoftwareia@gmail.com" },
   ],
   Legal: [
     { label: "Privacidad", href: "/privacidad" },
