@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use MercadoPago\MercadoPagoConfig;
@@ -18,15 +19,31 @@ class BillingController extends Controller
      */
     private function getDolarBlueCotizacion(): ?float
     {
+        $cacheKey = 'billing:dolar_blue_venta';
+
         try {
-            $response = Http::get('https://dolarapi.com/v1/dolares/blue');
+            $response = Http::timeout(8)->acceptJson()->get('https://dolarapi.com/v1/dolares/blue');
             if ($response->successful()) {
                 $data = $response->json();
-                return $data['venta'] ?? null;
+                $venta = isset($data['venta']) ? (float) $data['venta'] : null;
+                if ($venta && $venta > 0) {
+                    // Guardamos última cotización válida por 6 horas.
+                    Cache::put($cacheKey, $venta, now()->addHours(6));
+                    return $venta;
+                }
             }
         } catch (\Exception $e) {
             Log::warning('Error fetching dolar blue: ' . $e->getMessage());
         }
+
+        $cached = Cache::get($cacheKey);
+        if (!empty($cached) && (float) $cached > 0) {
+            Log::warning('Usando cotización dólar blue en caché por fallo del endpoint', [
+                'venta' => (float) $cached,
+            ]);
+            return (float) $cached;
+        }
+
         return null;
     }
 
@@ -83,23 +100,60 @@ class BillingController extends Controller
 
         // Obtener el plan del tenant para calcular el precio
         $plan = $tenant->plan;
-        $transactionAmount = 20; // valor por defecto si falla la API
-        
-        if ($plan && $plan->price_cents > 0) {
-            $precioUSD = $plan->price_cents / 100;
-            $dolarBlue = $this->getDolarBlueCotizacion();
-            if ($dolarBlue) {
-                $transactionAmount = round($precioUSD * $dolarBlue);
-                Log::info("Precio calculado: {$precioUSD} USD x \$ {$dolarBlue} = \$ {$transactionAmount} ARS");
-            } else {
-                Log::warning('No se pudo obtener dólar blue, usando precio por defecto');
+        if (!$plan || $plan->price_cents <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El plan seleccionado no tiene un precio válido para suscripción.',
+            ], 422);
+        }
+
+        $precioUSD = $plan->price_cents / 100;
+        $dolarBlue = $this->getDolarBlueCotizacion();
+
+        if (!$dolarBlue) {
+            $fallbackCotizacion = (float) config('services.mercadopago.dolar_blue_fallback', 0);
+            if ($fallbackCotizacion > 0) {
+                $dolarBlue = $fallbackCotizacion;
+                Log::warning('Usando cotización fallback de configuración', [
+                    'fallback' => $fallbackCotizacion,
+                ]);
             }
+        }
+
+        if (!$dolarBlue) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo obtener la cotización del dólar blue. Intentá nuevamente en unos minutos.',
+            ], 503);
+        }
+
+        $transactionAmount = round($precioUSD * $dolarBlue);
+        if ($transactionAmount <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo calcular el monto de la suscripción.',
+            ], 500);
+        }
+
+        Log::info("Precio calculado: {$precioUSD} USD x \$ {$dolarBlue} = \$ {$transactionAmount} ARS", [
+            'tenant_id' => $tenant->id,
+            'plan_id' => $plan->id,
+            'plan_name' => $plan->name,
+            'plan_price_cents' => $plan->price_cents,
+        ]);
+
+        $payerEmail = $request->user()->email ?: $tenant->email;
+        if (empty($payerEmail) || !filter_var($payerEmail, FILTER_VALIDATE_EMAIL)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay un email válido para iniciar la suscripción.',
+            ], 422);
         }
 
         try {
             $preapproval_data = [
                 "reason" => "NETO - Plan Pro Mensual",
-                "payer_email" => $tenant->email ?: $request->user()->email,
+                "payer_email" => $payerEmail,
                 "auto_recurring" => [
                     "frequency" => 1,
                     "frequency_type" => "months",
