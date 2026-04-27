@@ -148,15 +148,66 @@ docker-compose exec frontend npm install package
 - netoia.cloud = Landing (información, marketing)
 - app.netoia.cloud = Aplicación (registro, login, chatbot, WhatsApp)
 
-### Configuración de nginx
+### Configuración de nginx (Docker)
 
-```nginx
-# /etc/nginx/conf.d/landing.conf → netoia.cloud
-# /etc/nginx/conf.d/app.conf → app.netoia.cloud
+**NUNCA usar nginx del host (systemctl). SIEMPRE usar el contenedor Docker `neto_nginx`.**
+
+```yaml
+# docker-compose.yml - servicio nginx
+nginx:
+    image: nginx:1.25-alpine
+    container_name: neto_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./backend:/var/www
+      - ./frontend/dist:/usr/share/nginx/html
+      - ./landing/out:/usr/share/nginx/landing
+      - ./docker/nginx:/etc/nginx/conf.d
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 ```
+
+**Archivos de configuración (en `./docker/nginx/`):**
+- `app.conf` → app.netoia.cloud (Vue.js + API Laravel)
+- `landing.conf` → netoia.cloud (landing estática)
+
+**Para recargar nginx:** `docker-compose exec nginx nginx -s reload`
+
+**Para ver logs:** `docker-compose logs nginx`
+
+### Estructura de archivos en servidor
+
+```
+/var/www/neto/           # Repositorio principal (Git)
+├── landing/out/          # Build de landing (se monta en /usr/share/nginx/landing)
+├── frontend/dist/        # Build de frontend (se monta en /usr/share/nginx/html)
+└── backend/             # Laravel API
+```
+
+**NOTA:** La carpeta `/var/www/neto-landing/` está OBSOLETA y debe eliminarse.
 
 ### Variables de entorno críticas
 
 ```bash
 APP_KEY=base64:sGu6Rp8F4kdPpZjIPQVSKnM1zIiOCzxoND1qIlbFS/I=
 ```
+
+### Despliegue de cambios
+
+**Landing page (netoia.cloud):**
+1. Hacer cambios en `landing/` localmente
+2. `cd landing && npm run build` (genera `out/`)
+3. Subir `out/` al servidor: `rsync -avz landing/out/ root@servidor:/var/www/neto/landing/out/`
+4. No requiere recarga de nginx (archivos estáticos)
+
+**Frontend (app.netoia.cloud):**
+1. Hacer cambios en `frontend/` localmente
+2. `cd frontend && npm run build` (genera `dist/`)
+3. Subir `dist/` al servidor: `rsync -avz frontend/dist/ root@servidor:/var/www/neto/frontend/dist/`
+4. No requiere recarga de nginx (archivos estáticos)
+
+**Backend (API):**
+1. Hacer cambios en `backend/` localmente
+2. Subir cambios al servidor vía Git o rsync
+3. Ejecutar: `docker-compose exec app php artisan optimize:clear`
